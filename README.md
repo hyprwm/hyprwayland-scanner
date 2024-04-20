@@ -7,6 +7,13 @@ A Hyprland implementation of wayland-scanner, in and for C++.
 hyprwayland-scanner '/path/to/proto' '/path/to/output/directory'
 ```
 
+## Dependencies
+
+Requires a compiler with C++23 support.
+
+Dep list:
+ - pugixml
+
 ## Building
 
 ```sh
