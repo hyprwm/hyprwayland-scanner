@@ -277,6 +277,7 @@ void parseSource() {
     SOURCE += std::format(R"#(#define private public
 #include "{}.hpp"
 #undef private
+#define F std::function
 )#",
                           PROTO_DATA.fileName);
 
@@ -506,7 +507,26 @@ void {}::onDestroyCalled() {{
 )#",
                               IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_NAME + "_interface", IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL,
                               IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+
+        for (auto& rq : iface.requests) {
+            std::string args = ", ";
+            for (auto& arg : rq.args) {
+                args += arg.CType + ", ";
+            }
+
+            args.pop_back();
+            args.pop_back();
+
+            SOURCE += std::format(R"#(
+void {}::{}(F<void(wl_client*, wl_resource*{})> handler) {{
+    requests.{} = handler;
+}}
+)#",
+                                  IFACE_CLASS_NAME_CAMEL, camelize("set_" + rq.name), args, camelize(rq.name));
+        }
     }
+
+    SOURCE += "\n#undef F\n";
 }
 
 int main(int argc, char** argv, char** envp) {
