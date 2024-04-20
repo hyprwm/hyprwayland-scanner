@@ -396,7 +396,7 @@ static const void* {}[] = {{
 
         for (auto& rq : iface.requests) {
             const auto REQUEST_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name);
-            SOURCE += std::format("    {},\n", REQUEST_NAME);
+            SOURCE += std::format("    (void*){},\n", REQUEST_NAME);
         }
 
         SOURCE += "};\n";
