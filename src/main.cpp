@@ -568,6 +568,8 @@ static const wl_message {}[] = {{
 
 void {}::onDestroyCalled() {{
     wl_resource_set_user_data(pResource, nullptr);
+    wl_list_remove(&resourceDestroyListener.link);
+    wl_list_init(&resourceDestroyListener.link);
 
     if (onDestroy)
         onDestroy(this);
