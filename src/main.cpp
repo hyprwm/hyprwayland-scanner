@@ -163,6 +163,13 @@ struct wl_resource;
 )#";
 
     for (auto& iface : XMLDATA.ifaces) {
+        const auto IFACE_WL_NAME       = iface.name + "_interface";
+        const auto IFACE_WL_NAME_CAMEL = camelize(iface.name + "_interface");
+
+        HEADER += std::format("extern const wl_interface {};\n", IFACE_WL_NAME, IFACE_WL_NAME_CAMEL, IFACE_WL_NAME);
+    }
+
+    for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_NAME_CAMEL       = camelize(iface.name);
         const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
 
@@ -302,7 +309,7 @@ static const wl_interface* dummyTypes[] = { nullptr };
         const auto IFACE_WL_NAME_CAMEL = camelize(iface.name + "_interface");
 
         if (std::find(declaredIfaces.begin(), declaredIfaces.end(), IFACE_WL_NAME) == declaredIfaces.end()) {
-            SOURCE += std::format("extern const wl_interface {};\n#define {} {}\n", IFACE_WL_NAME, IFACE_WL_NAME_CAMEL, IFACE_WL_NAME);
+            SOURCE += std::format("extern const wl_interface {};\n", IFACE_WL_NAME, IFACE_WL_NAME_CAMEL, IFACE_WL_NAME);
 
             declaredIfaces.push_back(IFACE_WL_NAME);
         }
@@ -317,7 +324,7 @@ static const wl_interface* dummyTypes[] = { nullptr };
                 const auto IFACE_WL_NAME_CAMEL2 = camelize(arg.interface + "_interface");
 
                 if (std::find(declaredIfaces.begin(), declaredIfaces.end(), IFACE_WL_NAME2) == declaredIfaces.end()) {
-                    SOURCE += std::format("extern const wl_interface {};\n#define {} {}\n", IFACE_WL_NAME2, IFACE_WL_NAME_CAMEL2, IFACE_WL_NAME2);
+                    SOURCE += std::format("extern const wl_interface {};\n", IFACE_WL_NAME2, IFACE_WL_NAME_CAMEL2, IFACE_WL_NAME2);
                     declaredIfaces.push_back(IFACE_WL_NAME2);
                 }
             }
@@ -332,7 +339,7 @@ static const wl_interface* dummyTypes[] = { nullptr };
                 const auto IFACE_WL_NAME_CAMEL2 = camelize(arg.interface + "_interface");
 
                 if (std::find(declaredIfaces.begin(), declaredIfaces.end(), IFACE_WL_NAME2) == declaredIfaces.end()) {
-                    SOURCE += std::format("extern const wl_interface {};\n#define {} {}\n", IFACE_WL_NAME2, IFACE_WL_NAME_CAMEL2, IFACE_WL_NAME2);
+                    SOURCE += std::format("extern const wl_interface {};\n", IFACE_WL_NAME2, IFACE_WL_NAME_CAMEL2, IFACE_WL_NAME2);
                     declaredIfaces.push_back(IFACE_WL_NAME2);
                 }
             }
