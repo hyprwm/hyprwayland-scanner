@@ -1,0 +1,6 @@
+hyprwayland_scanner=@PREFIX@/bin/hyprwayland-scanner
+
+Name: HyprWayland Scanner
+URL: https://github.com/hyprwm/hyprwayland-scanner
+Description: A Hyprland version of wayland-scanner in and for C++
+Version: @VERSION@

@@ -7,6 +7,10 @@ project(hyprwayland-scanner
     VERSION ${VERSION}
 )
 
+include(GNUInstallDirs)
+
+set(PREFIX ${CMAKE_INSTALL_PREFIX})
+
 set(CMAKE_MESSAGE_LOG_LEVEL "STATUS")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug OR CMAKE_BUILD_TYPE MATCHES DEBUG)
@@ -25,6 +29,8 @@ add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-unused-value
 
 add_compile_definitions(SCANNER_VERSION="${VERSION}")
 
+configure_file(hyprwayland-scanner.pc.in hyprwayland-scanner.pc @ONLY)
+
 # dependencies
 message(STATUS "Checking deps...")
 
@@ -38,3 +44,4 @@ target_link_libraries(hyprwayland-scanner PRIVATE rt Threads::Threads PkgConfig:
 
 # Installation
 install(TARGETS hyprwayland-scanner)
+install(FILES ${CMAKE_BINARY_DIR}/hyprwayland-scanner.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
