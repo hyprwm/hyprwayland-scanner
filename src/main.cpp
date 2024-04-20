@@ -408,13 +408,15 @@ static const void* {}[] = {{
         for (auto& ev : iface.events) {
             const auto  EVENT_NAME = camelize("send_" + ev.name);
 
-            std::string argsC = ", ";
+            std::string argsC = "";
             for (auto& arg : ev.args) {
                 argsC += arg.CType + " " + arg.name + ", ";
             }
 
-            argsC.pop_back();
-            argsC.pop_back();
+            if (!argsC.empty()) {
+                argsC.pop_back();
+                argsC.pop_back();
+            }
 
             std::string argsN = ", ";
             for (auto& arg : ev.args) {
