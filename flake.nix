@@ -25,7 +25,7 @@
     ]);
   in {
     overlays = {
-      default = self.overlays.hpyrwayland-scanner;
+      default = self.overlays.hyprwayland-scanner;
       hyprwayland-scanner = final: prev: {
         hyprwayland-scanner = final.callPackage ./nix/default.nix {
           stdenv = final.gcc13Stdenv;
