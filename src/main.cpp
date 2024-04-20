@@ -271,7 +271,7 @@ class {} {{
             args.pop_back();
             args.pop_back();
 
-            HEADER += std::format("    void {}(F<void(wl_client*, wl_resource*{})> handler);\n", camelize("set_" + rq.name), args);
+            HEADER += std::format("    void {}(F<void({}*{})> handler);\n", camelize("set_" + rq.name), IFACE_CLASS_NAME_CAMEL, args);
         }
 
         // start events
@@ -307,10 +307,12 @@ class {} {{
                 args += arg.CType + ", ";
             }
 
-            args.pop_back();
-            args.pop_back();
+            if (!args.empty()) {
+                args.pop_back();
+                args.pop_back();
+            }
 
-            HEADER += std::format("        F<void(wl_client*, wl_resource*{})> {};\n", args, camelize(rq.name));
+            HEADER += std::format("        F<void({}*{})> {};\n", IFACE_CLASS_NAME_CAMEL, args, camelize(rq.name));
         }
 
         // end requests storage
@@ -426,14 +428,16 @@ static const wl_interface* dummyTypes[] = { nullptr };
                 argsN += arg.name + ", ";
             }
 
-            argsN.pop_back();
-            argsN.pop_back();
+            if (!argsN.empty()) {
+                argsN.pop_back();
+                argsN.pop_back();
+            }
 
             SOURCE += std::format(R"#(
 static void {}(wl_client* client, wl_resource* resource{}) {{
     const auto PO = ({}*)wl_resource_get_user_data(resource);
     if (PO->requests.{})
-        PO->requests.{}(client, resource{});
+        PO->requests.{}(PO{});
 }}
 )#",
                                   REQUEST_NAME, argsC, IFACE_CLASS_NAME_CAMEL, camelize(rq.name), camelize(rq.name), argsN);
@@ -582,11 +586,11 @@ void {}::onDestroyCalled() {{
             args.pop_back();
 
             SOURCE += std::format(R"#(
-void {}::{}(F<void(wl_client*, wl_resource*{})> handler) {{
+void {}::{}(F<void({}*{})> handler) {{
     requests.{} = handler;
 }}
 )#",
-                                  IFACE_CLASS_NAME_CAMEL, camelize("set_" + rq.name), args, camelize(rq.name));
+                                  IFACE_CLASS_NAME_CAMEL, camelize("set_" + rq.name), IFACE_CLASS_NAME_CAMEL, args, camelize(rq.name));
         }
     }
 
