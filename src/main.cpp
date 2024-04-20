@@ -143,7 +143,7 @@ void parseXML(pugi::xml_document& doc) {
         for (auto& en : iface.children("enum")) {
             SEnum enum_;
             enum_.nameOriginal = en.attribute("name").as_string();
-            enum_.name         = camelize(PROTO_DATA.name + "_" + enum_.nameOriginal);
+            enum_.name         = camelize(ifc.name + "_" + enum_.nameOriginal);
             for (auto& entry : en.children("entry")) {
                 auto VALUENAME = enum_.nameOriginal + "_" + entry.attribute("name").as_string();
                 std::transform(VALUENAME.begin(), VALUENAME.end(), VALUENAME.begin(), ::toupper);
