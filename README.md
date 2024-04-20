@@ -26,3 +26,7 @@ cmake --build build -j`nproc`
 ```sh
 sudo cmake --install build
 ```
+
+## TODO
+
+ - [ ] Support for generating client headers
