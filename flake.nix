@@ -29,7 +29,7 @@
       hyprwayland-scanner = final: prev: {
         hyprwayland-scanner = final.callPackage ./nix/default.nix {
           stdenv = final.gcc13Stdenv;
-          version = "0.pre" + "+date=" + (mkDate (self.lastModifiedDate or "19700101")) + "_" + (self.shortRev or "dirty");
+          version = "0.1.0" + "+date=" + (mkDate (self.lastModifiedDate or "19700101")) + "_" + (self.shortRev or "dirty");
         };
       };
     };
