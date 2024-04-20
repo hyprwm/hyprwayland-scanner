@@ -5,11 +5,13 @@
 #include <format>
 #include <vector>
 #include <algorithm>
+#include <tuple>
 
 struct SRequestArgument {
     std::string CType;
     std::string wlType;
     std::string interface;
+    std::string enumName;
     std::string name;
 };
 
@@ -30,8 +32,15 @@ struct SInterface {
     int                   version = 1;
 };
 
+struct SEnum {
+    std::string                              name;
+    std::string                              nameOriginal;
+    std::vector<std::pair<std::string, int>> values;
+};
+
 struct {
     std::vector<SInterface> ifaces;
+    std::vector<SEnum>      enums;
 } XMLDATA;
 
 std::string argsToShort(std::vector<SRequestArgument>& args) {
@@ -61,18 +70,28 @@ std::string argsToShort(std::vector<SRequestArgument>& args) {
     return shortt;
 }
 
-std::string WPTypeToCType(const std::string& wptype) {
-    if (wptype == "uint" || wptype == "new_id")
+std::string WPTypeToCType(const SRequestArgument& arg) {
+    if (arg.wlType == "uint" || arg.wlType == "new_id") {
+        if (arg.enumName.empty())
+            return "uint32_t";
+
+        // enum!
+        for (auto& e : XMLDATA.enums) {
+            if (e.nameOriginal == arg.enumName)
+                return e.name;
+        }
+
         return "uint32_t";
-    if (wptype == "object")
+    }
+    if (arg.wlType == "object")
         return "wl_resource*";
-    if (wptype == "int" || wptype == "fd")
+    if (arg.wlType == "int" || arg.wlType == "fd")
         return "int32_t";
-    if (wptype == "fixed")
+    if (arg.wlType == "fixed")
         return "wl_fixed_t";
-    if (wptype == "array")
+    if (arg.wlType == "array")
         return "wl_array*";
-    if (wptype == "string")
+    if (arg.wlType == "string")
         return "const char*";
     throw std::runtime_error("unknown wp type");
     return "";
@@ -103,10 +122,35 @@ struct {
 } PROTO_DATA;
 
 void parseXML(pugi::xml_document& doc) {
+
+    for (auto& ge : doc.child("protocol").children("enum")) {
+        SEnum enum_;
+        enum_.nameOriginal = ge.attribute("name").as_string();
+        enum_.name         = camelize(PROTO_DATA.name + "_" + enum_.nameOriginal);
+        for (auto& entry : ge.children("entry")) {
+            auto VALUENAME = enum_.nameOriginal + "_" + entry.attribute("name").as_string();
+            std::transform(VALUENAME.begin(), VALUENAME.end(), VALUENAME.begin(), ::toupper);
+            enum_.values.emplace_back(std::make_pair<>(VALUENAME, entry.attribute("value").as_int()));
+        }
+        XMLDATA.enums.push_back(enum_);
+    }
+
     for (auto& iface : doc.child("protocol").children("interface")) {
         SInterface ifc;
         ifc.name    = iface.attribute("name").as_string();
         ifc.version = iface.attribute("version").as_int();
+
+        for (auto& en : iface.children("enum")) {
+            SEnum enum_;
+            enum_.nameOriginal = en.attribute("name").as_string();
+            enum_.name         = camelize(PROTO_DATA.name + "_" + enum_.nameOriginal);
+            for (auto& entry : en.children("entry")) {
+                auto VALUENAME = enum_.nameOriginal + "_" + entry.attribute("name").as_string();
+                std::transform(VALUENAME.begin(), VALUENAME.end(), VALUENAME.begin(), ::toupper);
+                enum_.values.emplace_back(std::make_pair<>(VALUENAME, entry.attribute("value").as_int()));
+            }
+            XMLDATA.enums.push_back(enum_);
+        }
 
         for (auto& rq : iface.children("request")) {
             SRequest srq;
@@ -115,9 +159,10 @@ void parseXML(pugi::xml_document& doc) {
             for (auto& arg : rq.children("arg")) {
                 SRequestArgument sargm;
                 sargm.name      = arg.attribute("name").as_string();
-                sargm.CType     = WPTypeToCType(arg.attribute("type").as_string());
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.interface = arg.attribute("interface").as_string();
+                sargm.enumName  = arg.attribute("enum").as_string();
+                sargm.CType     = WPTypeToCType(sargm);
 
                 srq.args.push_back(sargm);
             }
@@ -132,9 +177,10 @@ void parseXML(pugi::xml_document& doc) {
             for (auto& arg : ev.children("arg")) {
                 SRequestArgument sargm;
                 sargm.name      = arg.attribute("name").as_string();
-                sargm.CType     = WPTypeToCType(arg.attribute("type").as_string());
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.wlType    = arg.attribute("type").as_string();
+                sargm.enumName  = arg.attribute("enum").as_string();
+                sargm.CType     = WPTypeToCType(sargm);
 
                 sev.args.push_back(sargm);
             }
@@ -161,6 +207,15 @@ struct wl_client;
 struct wl_resource;
 
 )#";
+
+    // parse all enums
+    for (auto& en : XMLDATA.enums) {
+        HEADER += std::format("enum {} : uint32_t {{\n", en.name);
+        for (auto& [k, v] : en.values) {
+            HEADER += std::format("    {} = {},\n", k, v);
+        }
+        HEADER += "};\n\n";
+    }
 
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_WL_NAME       = iface.name + "_interface";
