@@ -535,6 +535,12 @@ int main(int argc, char** argv, char** envp) {
 
     for (int i = 1; i < argc; ++i) {
         std::string curarg = argv[i];
+
+        if (curarg == "-v" || curarg == "--version") {
+            std::cout << SCANNER_VERSION << "\n";
+            return 0;
+        }
+
         if (i == 1)
             protopath = curarg;
         else if (i == 2)
