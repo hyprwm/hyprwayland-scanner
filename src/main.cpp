@@ -217,12 +217,16 @@ struct wl_resource;
         HEADER += "};\n\n";
     }
 
+    HEADER += "\n#ifndef HYPRWAYLAND_SCANNER_NO_INTERFACES\n";
+
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_WL_NAME       = iface.name + "_interface";
         const auto IFACE_WL_NAME_CAMEL = camelize(iface.name + "_interface");
 
         HEADER += std::format("extern const wl_interface {};\n", IFACE_WL_NAME, IFACE_WL_NAME_CAMEL, IFACE_WL_NAME);
     }
+
+    HEADER += "\n#endif\n";
 
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_NAME_CAMEL       = camelize(iface.name);
@@ -339,6 +343,7 @@ class {} {{
 
 void parseSource() {
     SOURCE += std::format(R"#(#define private public
+#define HYPRWAYLAND_SCANNER_NO_INTERFACES
 #include "{}.hpp"
 #undef private
 #define F std::function
@@ -364,13 +369,12 @@ static const wl_interface* dummyTypes[] = { nullptr };
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_WL_NAME       = iface.name + "_interface";
         const auto IFACE_WL_NAME_CAMEL = camelize(iface.name + "_interface");
+        declaredIfaces.push_back(IFACE_WL_NAME);
 
-        if (std::find(declaredIfaces.begin(), declaredIfaces.end(), IFACE_WL_NAME) == declaredIfaces.end()) {
-            SOURCE += std::format("extern const wl_interface {};\n", IFACE_WL_NAME, IFACE_WL_NAME_CAMEL, IFACE_WL_NAME);
+        SOURCE += std::format("extern const wl_interface {};\n", IFACE_WL_NAME, IFACE_WL_NAME_CAMEL, IFACE_WL_NAME);
+    }
 
-            declaredIfaces.push_back(IFACE_WL_NAME);
-        }
-
+    for (auto& iface : XMLDATA.ifaces) {
         // do all referenced too
         for (auto& rq : iface.requests) {
             for (auto& arg : rq.args) {
@@ -407,6 +411,7 @@ static const wl_interface* dummyTypes[] = { nullptr };
 
     for (auto& iface : XMLDATA.ifaces) {
 
+        const auto IFACE_WL_NAME          = iface.name + "_interface";
         const auto IFACE_NAME             = iface.name;
         const auto IFACE_NAME_CAMEL       = camelize(iface.name);
         const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
@@ -523,22 +528,69 @@ void {}::{}({}) {{
 
             SOURCE += "};\n";
         }
+        for (auto& ev : iface.events) {
+            if (ev.args.empty())
+                continue;
 
-        const auto MESSAGE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_message");
+            const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
+            SOURCE += std::format("static const wl_interface* {}[] = {{\n", TYPE_TABLE_NAME);
 
-        // message
-        SOURCE += std::format(R"#(
-static const wl_message {}[] = {{
-)#",
-                              MESSAGE_NAME);
-        for (auto& rq : iface.requests) {
-            // create type table
-            const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
+            for (auto& arg : ev.args) {
+                if (arg.interface.empty()) {
+                    SOURCE += "    nullptr,\n";
+                    continue;
+                }
 
-            SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                SOURCE += std::format("    &{}_interface,\n", arg.interface);
+            }
+
+            SOURCE += "};\n";
         }
 
-        SOURCE += "};\n";
+        const auto MESSAGE_NAME_REQUESTS = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_requests");
+        const auto MESSAGE_NAME_EVENTS   = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_events");
+
+        // message
+        if (iface.requests.size() > 0) {
+            SOURCE += std::format(R"#(
+static const wl_message {}[] = {{
+)#",
+                                  MESSAGE_NAME_REQUESTS);
+            for (auto& rq : iface.requests) {
+                // create type table
+                const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
+
+                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+            }
+
+            SOURCE += "};\n";
+        }
+
+        if (iface.events.size() > 0) {
+            SOURCE += std::format(R"#(
+static const wl_message {}[] = {{
+)#",
+                                  MESSAGE_NAME_EVENTS);
+            for (auto& ev : iface.events) {
+                // create type table
+                const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
+
+                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+            }
+
+            SOURCE += "};\n";
+        }
+
+        // iface
+        SOURCE += std::format(R"#(
+const wl_interface {} = {{
+    "{}", {},
+    {}, {},
+    {}, {},
+}};
+)#",
+                              IFACE_WL_NAME, iface.name, iface.version, iface.requests.size(), (iface.requests.size() > 0 ? MESSAGE_NAME_REQUESTS : "nullptr"), iface.events.size(),
+                              (iface.events.size() > 0 ? MESSAGE_NAME_EVENTS : "nullptr"));
 
         // protocol body
         SOURCE += std::format(R"#(
