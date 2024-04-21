@@ -145,7 +145,7 @@ void parseXML(pugi::xml_document& doc) {
             enum_.nameOriginal = en.attribute("name").as_string();
             enum_.name         = camelize(ifc.name + "_" + enum_.nameOriginal);
             for (auto& entry : en.children("entry")) {
-                auto VALUENAME = enum_.nameOriginal + "_" + entry.attribute("name").as_string();
+                auto VALUENAME = ifc.name + "_" + enum_.nameOriginal + "_" + entry.attribute("name").as_string();
                 std::transform(VALUENAME.begin(), VALUENAME.end(), VALUENAME.begin(), ::toupper);
                 enum_.values.emplace_back(std::make_pair<>(VALUENAME, entry.attribute("value").as_int()));
             }
