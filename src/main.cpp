@@ -70,17 +70,37 @@ std::string argsToShort(std::vector<SRequestArgument>& args) {
     return shortt;
 }
 
-std::string WPTypeToCType(const SRequestArgument& arg) {
-    if (arg.wlType == "uint" || arg.wlType == "new_id") {
-        if (arg.enumName.empty())
-            return "uint32_t";
-
-        // enum!
-        for (auto& e : XMLDATA.enums) {
-            if (e.nameOriginal == arg.enumName)
-                return e.name;
+std::string camelize(std::string snake) {
+    std::string result = "";
+    for (size_t i = 0; i < snake.length(); ++i) {
+        if (snake[i] == '_' && i != 0 && i + 1 < snake.length() && snake[i + 1] != '_') {
+            result += ::toupper(snake[i + 1]);
+            i++;
+            continue;
         }
 
+        result += snake[i];
+    }
+
+    return result;
+}
+
+std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass iface ptrs, requests ids */) {
+    if (arg.wlType == "uint" || arg.wlType == "new_id") {
+        if (arg.enumName.empty() && arg.interface.empty())
+            return "uint32_t";
+
+        // enum
+        if (!arg.enumName.empty())
+            for (auto& e : XMLDATA.enums) {
+                if (e.nameOriginal == arg.enumName)
+                    return e.name;
+            }
+
+        // iface
+        if (!arg.interface.empty() && event)
+            return camelize("C_" + arg.interface + "*");     
+        
         return "uint32_t";
     }
     if (arg.wlType == "object")
@@ -99,21 +119,6 @@ std::string WPTypeToCType(const SRequestArgument& arg) {
 
 std::string HEADER;
 std::string SOURCE;
-
-std::string camelize(std::string snake) {
-    std::string result = "";
-    for (size_t i = 0; i < snake.length(); ++i) {
-        if (snake[i] == '_' && i != 0 && i + 1 < snake.length() && snake[i + 1] != '_') {
-            result += ::toupper(snake[i + 1]);
-            i++;
-            continue;
-        }
-
-        result += snake[i];
-    }
-
-    return result;
-}
 
 struct {
     std::string name;
@@ -162,7 +167,7 @@ void parseXML(pugi::xml_document& doc) {
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
-                sargm.CType     = WPTypeToCType(sargm);
+                sargm.CType     = WPTypeToCType(sargm, false);
 
                 srq.args.push_back(sargm);
             }
@@ -180,7 +185,7 @@ void parseXML(pugi::xml_document& doc) {
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
-                sargm.CType     = WPTypeToCType(sargm);
+                sargm.CType     = WPTypeToCType(sargm, true);
 
                 sev.args.push_back(sargm);
             }
@@ -217,7 +222,13 @@ struct wl_resource;
         HEADER += "};\n\n";
     }
 
-    HEADER += "\n#ifndef HYPRWAYLAND_SCANNER_NO_INTERFACES\n";
+    // fw declare all classes
+    for (auto& iface : XMLDATA.ifaces) {
+        const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
+        HEADER += std::format("\nclass {};", IFACE_CLASS_NAME_CAMEL);
+    }
+
+    HEADER += "\n\n#ifndef HYPRWAYLAND_SCANNER_NO_INTERFACES\n";
 
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_WL_NAME       = iface.name + "_interface";
@@ -491,7 +502,10 @@ static const void* {}[] = {{
 
             std::string argsN = ", ";
             for (auto& arg : ev.args) {
-                argsN += arg.name + ", ";
+                if (arg.interface.empty())
+                    argsN += arg.name + ", ";
+                else
+                    argsN += arg.name + "->pResource, ";
             }
 
             argsN.pop_back();
