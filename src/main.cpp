@@ -502,7 +502,7 @@ static const void* {}[] = {{
 
             std::string argsN = ", ";
             for (auto& arg : ev.args) {
-                if (arg.interface.empty())
+                if (arg.interface.empty() || arg.wlType != "new_id")
                     argsN += arg.name + ", ";
                 else
                     argsN += arg.name + "->pResource, ";
