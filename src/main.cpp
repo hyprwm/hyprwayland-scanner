@@ -13,6 +13,7 @@ struct SRequestArgument {
     std::string interface;
     std::string enumName;
     std::string name;
+    bool        allowNull = false;
 };
 
 struct SRequest {
@@ -59,7 +60,7 @@ std::string argsToShort(std::vector<SRequestArgument>& args) {
         else if (a.wlType == "string")
             shortt += "s";
         else if (a.wlType == "object")
-            shortt += "o";
+            shortt += std::string(a.allowNull ? "?" : "") + "o";
         else if (a.wlType == "array")
             shortt += "a";
         else if (a.wlType == "fd")
@@ -99,8 +100,8 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
 
         // iface
         if (!arg.interface.empty() && event)
-            return camelize("C_" + arg.interface + "*");     
-        
+            return camelize("C_" + arg.interface + "*");
+
         return "uint32_t";
     }
     if (arg.wlType == "object")
@@ -167,6 +168,7 @@ void parseXML(pugi::xml_document& doc) {
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
+                sargm.allowNull = arg.attribute("allow-null").as_string() == std::string{"true"};
                 sargm.CType     = WPTypeToCType(sargm, false);
 
                 srq.args.push_back(sargm);
@@ -185,6 +187,7 @@ void parseXML(pugi::xml_document& doc) {
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
+                sargm.allowNull = arg.attribute("allow-null").as_string() == std::string{"true"};
                 sargm.CType     = WPTypeToCType(sargm, true);
 
                 sev.args.push_back(sargm);
