@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+set_and_check(BINDIR "@PACKAGE_CMAKE_INSTALL_BINDIR@")
+
+function(hyprwayland_protocol targets protoName protoPath outputPath)
+    add_custom_command(
+        OUTPUT "${outputPath}/${protoName}.cpp"
+        COMMAND "${BINDIR}/hyprwayland-scanner" "${protoPath}/${protoName}.xml" "${outputPath}"
+    )
+    foreach(target ${targets})
+        target_sources(${target} PRIVATE "${outputPath}/${protoName}.cpp")
+    endforeach()
+endfunction()
+
+check_required_components(hyprwayland-scanner)
