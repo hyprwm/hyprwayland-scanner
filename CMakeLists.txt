@@ -8,6 +8,7 @@ project(hyprwayland-scanner
 )
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 set(PREFIX ${CMAKE_INSTALL_PREFIX})
 
@@ -42,6 +43,14 @@ file(GLOB_RECURSE SRCFILES CONFIGURE_DEPENDS "src/*.cpp")
 add_executable(hyprwayland-scanner ${SRCFILES})
 target_link_libraries(hyprwayland-scanner PRIVATE rt Threads::Threads PkgConfig::deps)
 
+configure_package_config_file(
+    hyprwayland-scanner-config.cmake.in
+    hyprwayland-scanner-config.cmake
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/hyprwayland-scanner"
+    PATH_VARS CMAKE_INSTALL_BINDIR
+)
+
 # Installation
 install(TARGETS hyprwayland-scanner)
 install(FILES ${CMAKE_BINARY_DIR}/hyprwayland-scanner.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+install(FILES ${CMAKE_BINARY_DIR}/hyprwayland-scanner-config.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hyprwayland-scanner)
