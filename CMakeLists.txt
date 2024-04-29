@@ -49,8 +49,17 @@ configure_package_config_file(
     INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/hyprwayland-scanner"
     PATH_VARS CMAKE_INSTALL_BINDIR
 )
+write_basic_package_version_file(
+    "hyprwayland-scanner-config-version.cmake"
+    VERSION "${VERSION}"
+    COMPATIBILITY AnyNewerVersion
+)
 
 # Installation
 install(TARGETS hyprwayland-scanner)
 install(FILES ${CMAKE_BINARY_DIR}/hyprwayland-scanner.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-install(FILES ${CMAKE_BINARY_DIR}/hyprwayland-scanner-config.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hyprwayland-scanner)
+install(FILES
+    ${CMAKE_BINARY_DIR}/hyprwayland-scanner-config.cmake
+    ${CMAKE_BINARY_DIR}/hyprwayland-scanner-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hyprwayland-scanner
+)
