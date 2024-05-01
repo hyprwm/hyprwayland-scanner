@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <tuple>
+#include <filesystem>
 
 struct SRequestArgument {
     std::string CType;
@@ -731,12 +732,45 @@ int main(int argc, char** argv, char** envp) {
     parseHeader();
     parseSource();
 
-    std::ofstream header(outpath + "/" + PROTO_DATA.fileName + ".hpp", std::ios::trunc);
-    header << COPYRIGHT << HEADER;
-    header.close();
-    std::ofstream source(outpath + "/" + PROTO_DATA.fileName + ".cpp", std::ios::trunc);
-    source << COPYRIGHT << SOURCE;
-    source.close();
+    const auto HPATH              = outpath + "/" + PROTO_DATA.fileName + ".hpp";
+    const auto CPATH              = outpath + "/" + PROTO_DATA.fileName + ".cpp";
+    bool       needsToWriteHeader = true, needsToWriteSource = true;
+
+    if (std::filesystem::exists(HPATH)) {
+        // check if we need to overwrite
+
+        std::ifstream headerIn(HPATH);
+        std::string   content((std::istreambuf_iterator<char>(headerIn)), (std::istreambuf_iterator<char>()));
+
+        if (content == COPYRIGHT + HEADER)
+            needsToWriteHeader = false;
+
+        headerIn.close();
+    }
+
+    if (std::filesystem::exists(CPATH)) {
+        // check if we need to overwrite
+
+        std::ifstream sourceIn(CPATH);
+        std::string   content((std::istreambuf_iterator<char>(sourceIn)), (std::istreambuf_iterator<char>()));
+
+        if (content == COPYRIGHT + SOURCE)
+            needsToWriteHeader = false;
+
+        sourceIn.close();
+    }
+
+    if (needsToWriteHeader) {
+        std::ofstream header(HPATH, std::ios::trunc);
+        header << COPYRIGHT << HEADER;
+        header.close();
+    }
+
+    if (needsToWriteSource) {
+        std::ofstream source(CPATH, std::ios::trunc);
+        source << COPYRIGHT << SOURCE;
+        source.close();
+    }
 
     return 0;
 }
