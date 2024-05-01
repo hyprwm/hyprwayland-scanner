@@ -282,7 +282,7 @@ class {} {{
 
     // send an error
     void error(uint32_t error, const std::string& message) {{
-        wl_resource_post_error(pResource, error, message.c_str());
+        wl_resource_post_error(pResource, error, "%s", message.c_str());
     }}
 
     // send out of memory
