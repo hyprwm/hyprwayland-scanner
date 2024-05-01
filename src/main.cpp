@@ -273,6 +273,26 @@ class {} {{
         return pResource;
     }}
 
+    // get the client
+    wl_client* client() {{
+        return wl_resource_get_client(pResource);
+    }}
+
+    // send an error
+    void error(uint32_t error, const std::string& message) {{
+        wl_resource_post_error(pResource, error, message.c_str());
+    }}
+
+    // send out of memory
+    void noMemory() {{
+        wl_resource_post_no_memory(pResource);
+    }}
+
+    // get the resource version
+    int version() {{
+        return wl_resource_get_version(pResource);
+    }}
+
 )#",
                               IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
 
