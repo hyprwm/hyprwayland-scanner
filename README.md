@@ -17,8 +17,8 @@ Dep list:
 ## Building
 
 ```sh
-cmake -B build
-cmake --build build -j`nproc`
+cmake -DCMAKE_INSTALL_PREFIX=/usr -B build
+cmake --build build -j `nproc`
 ```
 
 ### Installation
