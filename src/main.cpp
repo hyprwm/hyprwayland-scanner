@@ -208,6 +208,7 @@ void parseHeader() {
 
 #include <functional>
 #include <cstdint>
+#include <string>
 #include <wayland-server.h>
 
 #define F std::function
