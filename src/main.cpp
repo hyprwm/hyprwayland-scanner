@@ -756,7 +756,7 @@ int main(int argc, char** argv, char** envp) {
         std::string   content((std::istreambuf_iterator<char>(sourceIn)), (std::istreambuf_iterator<char>()));
 
         if (content == COPYRIGHT + SOURCE)
-            needsToWriteHeader = false;
+            needsToWriteSource = false;
 
         sourceIn.close();
     }
