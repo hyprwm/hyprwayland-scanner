@@ -20,11 +20,13 @@ struct SRequestArgument {
 struct SRequest {
     std::vector<SRequestArgument> args;
     std::string                   name;
+    std::string                   since;
 };
 
 struct SEvent {
     std::vector<SRequestArgument> args;
     std::string                   name;
+    std::string                   since;
 };
 
 struct SInterface {
@@ -45,8 +47,8 @@ struct {
     std::vector<SEnum>      enums;
 } XMLDATA;
 
-std::string argsToShort(std::vector<SRequestArgument>& args) {
-    std::string shortt = "";
+std::string argsToShort(std::vector<SRequestArgument>& args, const std::string& since) {
+    std::string shortt = since;
     for (auto& a : args) {
         if (a.wlType == "int")
             shortt += "i";
@@ -161,7 +163,8 @@ void parseXML(pugi::xml_document& doc) {
 
         for (auto& rq : iface.children("request")) {
             SRequest srq;
-            srq.name = rq.attribute("name").as_string();
+            srq.name  = rq.attribute("name").as_string();
+            srq.since = rq.attribute("since").as_string();
 
             for (auto& arg : rq.children("arg")) {
                 SRequestArgument sargm;
@@ -180,7 +183,8 @@ void parseXML(pugi::xml_document& doc) {
 
         for (auto& ev : iface.children("event")) {
             SEvent sev;
-            sev.name = ev.attribute("name").as_string();
+            sev.name  = ev.attribute("name").as_string();
+            sev.since = ev.attribute("since").as_string();
 
             for (auto& arg : ev.children("arg")) {
                 SRequestArgument sargm;
@@ -599,7 +603,7 @@ static const wl_message {}[] = {{
                 // create type table
                 const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
-                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
             }
 
             SOURCE += "};\n";
@@ -614,7 +618,7 @@ static const wl_message {}[] = {{
                 // create type table
                 const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
 
-                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
             }
 
             SOURCE += "};\n";
