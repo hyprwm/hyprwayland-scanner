@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 
-set(VERSION 0.3.4)
+set(VERSION 0.3.5)
 
 project(hyprwayland-scanner
     DESCRIPTION "A hyprland version of wayland-scanner in and for C++"
