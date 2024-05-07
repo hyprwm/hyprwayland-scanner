@@ -9,7 +9,6 @@
 #include <filesystem>
 
 struct SRequestArgument {
-    std::string CType;
     std::string wlType;
     std::string interface;
     std::string enumName;
@@ -107,8 +106,15 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
 
         return "uint32_t";
     }
-    if (arg.wlType == "object")
+    if (arg.wlType == "object") {
+        if (!arg.interface.empty() && event) {
+            for (auto& i : XMLDATA.ifaces) {
+                if (i.name == arg.interface)
+                    return camelize("C_" + arg.interface + "*");
+            }
+        }
         return "wl_resource*";
+    }
     if (arg.wlType == "int" || arg.wlType == "fd")
         return "int32_t";
     if (arg.wlType == "fixed")
@@ -173,7 +179,6 @@ void parseXML(pugi::xml_document& doc) {
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
                 sargm.allowNull = arg.attribute("allow-null").as_string() == std::string{"true"};
-                sargm.CType     = WPTypeToCType(sargm, false);
 
                 srq.args.push_back(sargm);
             }
@@ -193,7 +198,6 @@ void parseXML(pugi::xml_document& doc) {
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
                 sargm.allowNull = arg.attribute("allow-null").as_string() == std::string{"true"};
-                sargm.CType     = WPTypeToCType(sargm, true);
 
                 sev.args.push_back(sargm);
             }
@@ -309,7 +313,7 @@ class {} {{
 
             std::string args = ", ";
             for (auto& arg : rq.args) {
-                args += arg.CType + ", ";
+                args += WPTypeToCType(arg, false) + ", ";
             }
 
             args.pop_back();
@@ -325,7 +329,7 @@ class {} {{
         for (auto& ev : iface.events) {
             std::string args = "";
             for (auto& arg : ev.args) {
-                args += arg.CType + ", ";
+                args += WPTypeToCType(arg, true) + ", ";
             }
 
             if (!args.empty()) {
@@ -348,7 +352,7 @@ class {} {{
 
             std::string args = ", ";
             for (auto& arg : rq.args) {
-                args += arg.CType + ", ";
+                args += WPTypeToCType(arg, false) + ", ";
             }
 
             if (!args.empty()) {
@@ -462,7 +466,7 @@ static const wl_interface* dummyTypes[] = { nullptr };
 
             std::string argsC = ", ";
             for (auto& arg : rq.args) {
-                argsC += arg.CType + " " + arg.name + ", ";
+                argsC += WPTypeToCType(arg, false) + " " + arg.name + ", ";
             }
 
             argsC.pop_back();
@@ -521,7 +525,7 @@ static const void* {}[] = {{
 
             std::string argsC = "";
             for (auto& arg : ev.args) {
-                argsC += arg.CType + " " + arg.name + ", ";
+                argsC += WPTypeToCType(arg, true) + " " + arg.name + ", ";
             }
 
             if (!argsC.empty()) {
@@ -531,7 +535,7 @@ static const void* {}[] = {{
 
             std::string argsN = ", ";
             for (auto& arg : ev.args) {
-                if (arg.interface.empty() || arg.wlType != "new_id")
+                if (!WPTypeToCType(arg, true).starts_with("C"))
                     argsN += arg.name + ", ";
                 else
                     argsN += arg.name + "->pResource, ";
@@ -676,7 +680,7 @@ void {}::onDestroyCalled() {{
         for (auto& rq : iface.requests) {
             std::string args = ", ";
             for (auto& arg : rq.args) {
-                args += arg.CType + ", ";
+                args += WPTypeToCType(arg, false) + ", ";
             }
 
             args.pop_back();
