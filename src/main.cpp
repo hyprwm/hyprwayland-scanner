@@ -46,6 +46,18 @@ struct {
     std::vector<SEnum>      enums;
 } XMLDATA;
 
+std::string sanitize(const std::string& in) {
+    if (in == "namespace")
+        return "namespace_";
+    if (in == "class")
+        return "class_";
+    if (in == "delete")
+        return "delete_";
+    if (in == "new")
+        return "new_";
+    return in;
+}
+
 std::string argsToShort(std::vector<SRequestArgument>& args, const std::string& since) {
     std::string shortt = since;
     for (auto& a : args) {
@@ -174,7 +186,7 @@ void parseXML(pugi::xml_document& doc) {
 
             for (auto& arg : rq.children("arg")) {
                 SRequestArgument sargm;
-                sargm.name      = arg.attribute("name").as_string();
+                sargm.name      = sanitize(arg.attribute("name").as_string());
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
@@ -193,7 +205,7 @@ void parseXML(pugi::xml_document& doc) {
 
             for (auto& arg : ev.children("arg")) {
                 SRequestArgument sargm;
-                sargm.name      = arg.attribute("name").as_string();
+                sargm.name      = sanitize(arg.attribute("name").as_string());
                 sargm.interface = arg.attribute("interface").as_string();
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.enumName  = arg.attribute("enum").as_string();
