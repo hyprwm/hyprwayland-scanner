@@ -8,6 +8,8 @@
 #include <tuple>
 #include <filesystem>
 
+bool waylandEnums = false;
+
 struct SRequestArgument {
     std::string wlType;
     std::string interface;
@@ -100,7 +102,7 @@ std::string camelize(std::string snake) {
     return result;
 }
 
-std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass iface ptrs, requests ids */) {
+std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass iface ptrs, requests ids */, bool ignoreTypes = false /* for dangerous */) {
     if (arg.wlType == "uint" || arg.wlType == "new_id") {
         if (arg.enumName.empty() && arg.interface.empty())
             return "uint32_t";
@@ -119,7 +121,7 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
         return "uint32_t";
     }
     if (arg.wlType == "object") {
-        if (!arg.interface.empty() && event) {
+        if (!arg.interface.empty() && event && !ignoreTypes) {
             for (auto& i : XMLDATA.ifaces) {
                 if (i.name == arg.interface)
                     return camelize("C_" + arg.interface + "*");
@@ -153,7 +155,7 @@ void parseXML(pugi::xml_document& doc) {
     for (auto& ge : doc.child("protocol").children("enum")) {
         SEnum enum_;
         enum_.nameOriginal = ge.attribute("name").as_string();
-        enum_.name         = camelize(PROTO_DATA.name + "_" + enum_.nameOriginal);
+        enum_.name         = waylandEnums ? "enum " + PROTO_DATA.name + "_" + enum_.nameOriginal : camelize(PROTO_DATA.name + "_" + enum_.nameOriginal);
         for (auto& entry : ge.children("entry")) {
             auto VALUENAME = enum_.nameOriginal + "_" + entry.attribute("name").as_string();
             std::transform(VALUENAME.begin(), VALUENAME.end(), VALUENAME.begin(), ::toupper);
@@ -170,7 +172,7 @@ void parseXML(pugi::xml_document& doc) {
         for (auto& en : iface.children("enum")) {
             SEnum enum_;
             enum_.nameOriginal = en.attribute("name").as_string();
-            enum_.name         = camelize(ifc.name + "_" + enum_.nameOriginal);
+            enum_.name         = waylandEnums ? "enum " + ifc.name + "_" + enum_.nameOriginal : camelize(ifc.name + "_" + enum_.nameOriginal);
             for (auto& entry : en.children("entry")) {
                 auto VALUENAME = ifc.name + "_" + enum_.nameOriginal + "_" + entry.attribute("name").as_string();
                 std::transform(VALUENAME.begin(), VALUENAME.end(), VALUENAME.begin(), ::toupper);
@@ -239,12 +241,14 @@ struct wl_resource;
 )#";
 
     // parse all enums
-    for (auto& en : XMLDATA.enums) {
-        HEADER += std::format("enum {} : uint32_t {{\n", en.name);
-        for (auto& [k, v] : en.values) {
-            HEADER += std::format("    {} = {},\n", k, v);
+    if (!waylandEnums) {
+        for (auto& en : XMLDATA.enums) {
+            HEADER += std::format("enum {} : uint32_t {{\n", en.name);
+            for (auto& [k, v] : en.values) {
+                HEADER += std::format("    {} = {},\n", k, v);
+            }
+            HEADER += "};\n\n";
         }
-        HEADER += "};\n\n";
     }
 
     // fw declare all classes
@@ -350,6 +354,21 @@ class {} {{
             }
 
             HEADER += std::format("    void {}({});\n", camelize("send_" + ev.name), args);
+        }
+
+    // dangerous ones
+        for (auto& ev : iface.events) {
+            std::string args = "";
+            for (auto& arg : ev.args) {
+                args += WPTypeToCType(arg, true, true) + ", ";
+            }
+
+            if (!args.empty()) {
+                args.pop_back();
+                args.pop_back();
+            }
+
+            HEADER += std::format("    void {}({});\n", camelize("send_" + ev.name + "_raw"), args);
         }
 
         // end events
@@ -566,6 +585,39 @@ void {}::{}({}) {{
             evid++;
         }
 
+        // dangerous
+        evid = 0;
+        for (auto& ev : iface.events) {
+            const auto  EVENT_NAME = camelize("send_" + ev.name + "_raw");
+
+            std::string argsC = "";
+            for (auto& arg : ev.args) {
+                argsC += WPTypeToCType(arg, true, true) + " " + arg.name + ", ";
+            }
+
+            if (!argsC.empty()) {
+                argsC.pop_back();
+                argsC.pop_back();
+            }
+
+            std::string argsN = ", ";
+            for (auto& arg : ev.args) {
+                argsN += arg.name + ", ";
+            }
+
+            argsN.pop_back();
+            argsN.pop_back();
+
+            SOURCE += std::format(R"#(
+void {}::{}({}) {{
+    wl_resource_post_event(pResource, {}{});
+}}
+)#",
+                                  IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
+
+            evid++;
+        }
+
         // wayland interfaces and stuff
 
         // type tables
@@ -714,6 +766,8 @@ int main(int argc, char** argv, char** envp) {
     std::string outpath   = "";
     std::string protopath = "";
 
+    int         pathsTaken = 0;
+
     for (int i = 1; i < argc; ++i) {
         std::string curarg = argv[i];
 
@@ -722,10 +776,23 @@ int main(int argc, char** argv, char** envp) {
             return 0;
         }
 
-        if (i == 1)
+        if (curarg == "--wayland-enums") {
+            waylandEnums = true;
+            continue;
+        }
+
+        if (pathsTaken == 0) {
             protopath = curarg;
-        else if (i == 2)
+            pathsTaken++;
+            continue;
+        } else if (pathsTaken == 1) {
             outpath = curarg;
+            pathsTaken++;
+            continue;
+        }
+
+        std::cout << "Too many args or unknown arg " << curarg << "\n";
+        return 1;
     }
 
     if (outpath.empty() || protopath.empty()) {
