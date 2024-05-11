@@ -516,7 +516,7 @@ static const wl_interface* dummyTypes[] = { nullptr };
             SOURCE += std::format(R"#(
 static void {}(wl_client* client, wl_resource* resource{}) {{
     const auto PO = ({}*)wl_resource_get_user_data(resource);
-    if (PO->requests.{})
+    if (PO && PO->requests.{})
         PO->requests.{}(PO{});
 }}
 )#",
@@ -727,6 +727,7 @@ const wl_interface {} = {{
     // it means we need to destroy it.
     if (wl_resource_get_user_data(pResource) == this)
         wl_resource_destroy(pResource);
+    wl_resource_set_user_data(pResource, nullptr);
 }}
 
 void {}::onDestroyCalled() {{
