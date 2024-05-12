@@ -9,6 +9,7 @@ function(hyprwayland_protocol targets protoName protoPath outputPath)
     )
     foreach(target ${targets})
         target_sources(${target} PRIVATE "${outputPath}/${protoName}.cpp")
+        target_sources(${target} PRIVATE "${outputPath}/${protoName}.hpp")
     endforeach()
 endfunction()
 
