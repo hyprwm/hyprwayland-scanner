@@ -74,7 +74,7 @@ std::string argsToShort(std::vector<SRequestArgument>& args, const std::string& 
         else if (a.wlType == "fixed")
             shortt += "f";
         else if (a.wlType == "string")
-            shortt += "s";
+            shortt += std::string(a.allowNull ? "?s" : "s");
         else if (a.wlType == "object")
             shortt += std::string(a.allowNull ? "?" : "") + "o";
         else if (a.wlType == "array")
