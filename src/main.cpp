@@ -115,8 +115,13 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
             }
 
         // iface
-        if (!arg.interface.empty() && event)
-            return camelize("C_" + arg.interface + "*");
+        if (!arg.interface.empty() && event) {
+            for (auto& i : XMLDATA.ifaces) {
+                if (i.name == arg.interface)
+                    return camelize("C_" + arg.interface + "*");
+            }
+            return "wl_resource*";
+        }
 
         return "uint32_t";
     }
@@ -255,7 +260,7 @@ struct wl_resource;
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
         HEADER += std::format("\nclass {};", IFACE_CLASS_NAME_CAMEL);
-        
+
         for (auto& rq : iface.requests) {
             for (auto& arg : rq.args) {
                 if (!arg.interface.empty()) {
@@ -372,7 +377,7 @@ class {} {{
             HEADER += std::format("    void {}({});\n", camelize("send_" + ev.name), args);
         }
 
-    // dangerous ones
+        // dangerous ones
         for (auto& ev : iface.events) {
             std::string args = "";
             for (auto& arg : ev.args) {
