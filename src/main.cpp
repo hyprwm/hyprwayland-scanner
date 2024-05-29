@@ -255,6 +255,22 @@ struct wl_resource;
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
         HEADER += std::format("\nclass {};", IFACE_CLASS_NAME_CAMEL);
+        
+        for (auto& rq : iface.requests) {
+            for (auto& arg : rq.args) {
+                if (!arg.interface.empty()) {
+                    HEADER += std::format("\nclass {};", camelize("C_" + arg.interface));
+                }
+            }
+        }
+
+        for (auto& rq : iface.events) {
+            for (auto& arg : rq.args) {
+                if (!arg.interface.empty()) {
+                    HEADER += std::format("\nclass {};", camelize("C_" + arg.interface));
+                }
+            }
+        }
     }
 
     HEADER += "\n\n#ifndef HYPRWAYLAND_SCANNER_NO_INTERFACES\n";
