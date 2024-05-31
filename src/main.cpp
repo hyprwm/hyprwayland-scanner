@@ -744,12 +744,12 @@ const wl_interface {} = {{
     wl_list_remove(&resourceDestroyListener.link);
     wl_list_init(&resourceDestroyListener.link);
 
-    wl_resource_set_user_data(pResource, nullptr);
-
     // if we still own the wayland resource,
     // it means we need to destroy it.
-    if (wl_resource_get_user_data(pResource) == this)
+    if (wl_resource_get_user_data(pResource) == this) {{
+        wl_resource_set_user_data(pResource, nullptr);
         wl_resource_destroy(pResource);
+    }}
 }}
 
 void {}::onDestroyCalled() {{
