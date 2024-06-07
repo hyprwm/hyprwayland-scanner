@@ -598,6 +598,8 @@ static const void* {}[] = {{
 
             SOURCE += std::format(R"#(
 void {}::{}({}) {{
+    if (!pResource)
+        return;
     wl_resource_post_event(pResource, {}{});
 }}
 )#",
@@ -631,6 +633,8 @@ void {}::{}({}) {{
 
             SOURCE += std::format(R"#(
 void {}::{}({}) {{
+    if (!pResource)
+        return;
     wl_resource_post_event(pResource, {}{});
 }}
 )#",
