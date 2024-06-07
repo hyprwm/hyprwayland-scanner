@@ -746,7 +746,7 @@ const wl_interface {} = {{
 
     // if we still own the wayland resource,
     // it means we need to destroy it.
-    if (wl_resource_get_user_data(pResource) == this) {{
+    if (pResource && wl_resource_get_user_data(pResource) == this) {{
         wl_resource_set_user_data(pResource, nullptr);
         wl_resource_destroy(pResource);
     }}
@@ -756,6 +756,11 @@ void {}::onDestroyCalled() {{
     wl_resource_set_user_data(pResource, nullptr);
     wl_list_remove(&resourceDestroyListener.link);
     wl_list_init(&resourceDestroyListener.link);
+
+    // set the resource to nullptr,
+    // as it will be freed. If the consumer does not destroy this resource
+    // in onDestroy here, we'd be doing a UAF in the ~dtor
+    pResource = nullptr;
 
     if (onDestroy)
         onDestroy(this);
