@@ -15,6 +15,9 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     cmake
     pkg-config
+  ];
+
+  buildInputs = [
     pugixml
   ];
 

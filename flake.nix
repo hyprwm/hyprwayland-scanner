@@ -18,6 +18,12 @@
         localSystem.system = system;
         overlays = with self.overlays; [hyprwayland-scanner];
       });
+    pkgsCrossFor = eachSystem (system: crossSystem:
+      import nixpkgs {
+        localSystem = system;
+        crossSystem = crossSystem;
+        overlays = with self.overlays; [hyprwayland-scanner];
+      });
     mkDate = longDate: (lib.concatStringsSep "-" [
       (builtins.substring 0 4 longDate)
       (builtins.substring 4 2 longDate)
@@ -37,6 +43,7 @@
     packages = eachSystem (system: {
       default = self.packages.${system}.hyprwayland-scanner;
       inherit (pkgsFor.${system}) hyprwayland-scanner;
+      hyprwayland-scanner-cross = (pkgsCrossFor.${system} "aarch64-linux").hyprwayland-scanner;
     });
 
     formatter = eachSystem (system: pkgsFor.${system}.alejandra);
