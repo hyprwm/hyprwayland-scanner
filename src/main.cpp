@@ -795,7 +795,7 @@ static const wl_message {}[] = {{
 
             // iface
             SOURCE += std::format(R"#(
-const wl_interface {} = {{false
+const wl_interface {} = {{
     "{}", {},
     {}, {},
     {}, {},
