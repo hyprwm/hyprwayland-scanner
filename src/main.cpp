@@ -10,6 +10,7 @@
 
 bool waylandEnums = false;
 bool clientCode   = false;
+bool noInterfaces = false;
 
 struct SRequestArgument {
     std::string wlType;
@@ -661,7 +662,7 @@ void {}::{}({}) {{
 )#",
                                       IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
             } else {
-                std::string retType = ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType);
+                std::string retType    = ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType);
                 std::string ptrRetType = ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType) + "*";
                 std::string flags      = ev.destructor ? "1" : "0";
                 SOURCE += std::format(R"#(
@@ -761,46 +762,48 @@ void {}::{}({}) {{
         const auto MESSAGE_NAME_EVENTS   = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_events");
 
         // message
-        if (iface.requests.size() > 0) {
-            SOURCE += std::format(R"#(
+        if (!noInterfaces) {
+            if (iface.requests.size() > 0) {
+                SOURCE += std::format(R"#(
 static const wl_message {}[] = {{
 )#",
-                                  MESSAGE_NAME_REQUESTS);
-            for (auto& rq : iface.requests) {
-                // create type table
-                const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
+                                      MESSAGE_NAME_REQUESTS);
+                for (auto& rq : iface.requests) {
+                    // create type table
+                    const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
-                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                }
+
+                SOURCE += "};\n";
             }
 
-            SOURCE += "};\n";
-        }
-
-        if (iface.events.size() > 0) {
-            SOURCE += std::format(R"#(
+            if (iface.events.size() > 0) {
+                SOURCE += std::format(R"#(
 static const wl_message {}[] = {{
 )#",
-                                  MESSAGE_NAME_EVENTS);
-            for (auto& ev : iface.events) {
-                // create type table
-                const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
+                                      MESSAGE_NAME_EVENTS);
+                for (auto& ev : iface.events) {
+                    // create type table
+                    const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
 
-                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                }
+
+                SOURCE += "};\n";
             }
 
-            SOURCE += "};\n";
-        }
-
-        // iface
-        SOURCE += std::format(R"#(
-const wl_interface {} = {{
+            // iface
+            SOURCE += std::format(R"#(
+const wl_interface {} = {{false
     "{}", {},
     {}, {},
     {}, {},
 }};
 )#",
-                              IFACE_WL_NAME, iface.name, iface.version, iface.requests.size(), (iface.requests.size() > 0 ? MESSAGE_NAME_REQUESTS : "nullptr"), iface.events.size(),
-                              (iface.events.size() > 0 ? MESSAGE_NAME_EVENTS : "nullptr"));
+                                  IFACE_WL_NAME, iface.name, iface.version, iface.requests.size(), (iface.requests.size() > 0 ? MESSAGE_NAME_REQUESTS : "nullptr"),
+                                  iface.events.size(), (iface.events.size() > 0 ? MESSAGE_NAME_EVENTS : "nullptr"));
+        }
 
         // protocol body
         if (!clientCode) {
@@ -903,6 +906,11 @@ int main(int argc, char** argv, char** envp) {
 
         if (curarg == "-c" || curarg == "--client") {
             clientCode = true;
+            continue;
+        }
+
+        if (curarg == "--no-interfaces") {
+            noInterfaces = true;
             continue;
         }
 
