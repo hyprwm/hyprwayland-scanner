@@ -17,6 +17,7 @@ struct SRequestArgument {
     std::string interface;
     std::string enumName;
     std::string name;
+    bool        newType   = false;
     bool        allowNull = false;
 };
 
@@ -192,11 +193,10 @@ void parseXML(pugi::xml_document& doc) {
 
             for (auto& arg : rq.children("arg")) {
                 SRequestArgument sargm;
-                if (arg.attribute("type").as_string() == std::string{"new_id"} && clientCode) {
+                if (arg.attribute("type").as_string() == std::string{"new_id"} && clientCode)
                     srq.newIdType = arg.attribute("interface").as_string();
-                    continue;
-                }
 
+                sargm.newType   = arg.attribute("type").as_string() == std::string{"new_id"} && clientCode;
                 sargm.name      = sanitize(arg.attribute("name").as_string());
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.interface = arg.attribute("interface").as_string();
@@ -384,6 +384,8 @@ class {} {{
 
             std::string args = ", ";
             for (auto& arg : rq.args) {
+                if (arg.newType)
+                    continue;
                 args += WPTypeToCType(arg, false) + ", ";
             }
 
@@ -400,6 +402,8 @@ class {} {{
         for (auto& ev : (!clientCode ? iface.events : iface.requests)) {
             std::string args = "";
             for (auto& arg : ev.args) {
+                if (arg.newType)
+                    continue;
                 args += WPTypeToCType(arg, true) + ", ";
             }
 
@@ -416,6 +420,8 @@ class {} {{
             for (auto& ev : (!clientCode ? iface.events : iface.requests)) {
                 std::string args = "";
                 for (auto& arg : ev.args) {
+                    if (arg.newType)
+                        continue;
                     args += WPTypeToCType(arg, true, true) + ", ";
                 }
 
@@ -440,6 +446,8 @@ class {} {{
 
             std::string args = ", ";
             for (auto& arg : rq.args) {
+                if (arg.newType)
+                    continue;
                 args += WPTypeToCType(arg, false) + ", ";
             }
 
@@ -561,6 +569,8 @@ static const wl_interface* dummyTypes[] = { nullptr };
 
             std::string argsC = ", ";
             for (auto& arg : rq.args) {
+                if (arg.newType)
+                    continue;
                 argsC += WPTypeToCType(arg, false) + " " + arg.name + ", ";
             }
 
@@ -633,6 +643,8 @@ static const void* {}[] = {{
 
             std::string argsC = "";
             for (auto& arg : ev.args) {
+                if (arg.newType)
+                    continue;
                 argsC += WPTypeToCType(arg, true) + " " + arg.name + ", ";
             }
 
@@ -643,6 +655,8 @@ static const void* {}[] = {{
 
             std::string argsN = ", ";
             for (auto& arg : ev.args) {
+                if (arg.newType)
+                    continue;
                 if (!WPTypeToCType(arg, true).starts_with("C"))
                     argsN += arg.name + ", ";
                 else
@@ -689,6 +703,8 @@ void {}::{}({}) {{
 
                 std::string argsC = "";
                 for (auto& arg : ev.args) {
+                    if (arg.newType)
+                        continue;
                     argsC += WPTypeToCType(arg, true, true) + " " + arg.name + ", ";
                 }
 
@@ -699,6 +715,8 @@ void {}::{}({}) {{
 
                 std::string argsN = ", ";
                 for (auto& arg : ev.args) {
+                    if (arg.newType)
+                        continue;
                     argsN += arg.name + ", ";
                 }
 
