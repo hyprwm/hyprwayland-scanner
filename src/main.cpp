@@ -660,7 +660,7 @@ static const void* {}[] = {{
                 if (!WPTypeToCType(arg, true).starts_with("C"))
                     argsN += arg.name + ", ";
                 else
-                    argsN += arg.name + "->pResource, ";
+                    argsN += (arg.name + " ? " + arg.name + "->pResource : nullptr, ");
             }
 
             argsN.pop_back();
