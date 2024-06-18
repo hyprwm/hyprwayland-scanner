@@ -661,6 +661,7 @@ void {}::{}({}) {{
 )#",
                                       IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
             } else {
+                std::string retType = ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType);
                 std::string ptrRetType = ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType) + "*";
                 std::string flags      = ev.destructor ? "1" : "0";
                 SOURCE += std::format(R"#(
@@ -673,7 +674,7 @@ void {}::{}({}) {{
 )#",
                                       ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"), evid,
                                       (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags, (!ev.newIdType.empty() ? ", nullptr" : ""), argsN,
-                                      (ev.newIdType.empty() ? "" : "\n\n    return (" + ptrRetType + ")wl_proxy_get_user_data(proxy);"));
+                                      (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return new " + retType + "(proxy);"));
             }
 
             evid++;
