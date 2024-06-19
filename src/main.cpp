@@ -412,7 +412,7 @@ class {} {{
                 args.pop_back();
             }
 
-            HEADER += std::format("    {} {}({});\n", ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType) + "*", camelize("send_" + ev.name), args);
+            HEADER += std::format("    {} {}({});\n", ev.newIdType.empty() ? "void" : "wl_proxy*", camelize("send_" + ev.name), args);
         }
 
         // dangerous ones
@@ -676,8 +676,8 @@ void {}::{}({}) {{
 )#",
                                       IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
             } else {
-                std::string retType    = ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType);
-                std::string ptrRetType = ev.newIdType.empty() ? "void" : camelize("C_" + ev.newIdType) + "*";
+                std::string retType    = ev.newIdType.empty() ? "void" : "wl_proxy";
+                std::string ptrRetType = ev.newIdType.empty() ? "void" : "wl_proxy*";
                 std::string flags      = ev.destructor ? "1" : "0";
                 SOURCE += std::format(R"#(
 {} {}::{}({}) {{
@@ -689,7 +689,7 @@ void {}::{}({}) {{
 )#",
                                       ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"), evid,
                                       (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags, (!ev.newIdType.empty() ? ", nullptr" : ""), argsN,
-                                      (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return new " + retType + "(proxy);"));
+                                      (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return proxy;"));
             }
 
             evid++;
