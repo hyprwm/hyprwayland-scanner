@@ -9,32 +9,31 @@
 #include <filesystem>
 
 bool waylandEnums = false;
+bool clientCode   = false;
+bool noInterfaces = false;
 
 struct SRequestArgument {
     std::string wlType;
     std::string interface;
     std::string enumName;
     std::string name;
+    bool        newType   = false;
     bool        allowNull = false;
 };
 
-struct SRequest {
+struct SWaylandFunction {
     std::vector<SRequestArgument> args;
     std::string                   name;
     std::string                   since;
-};
-
-struct SEvent {
-    std::vector<SRequestArgument> args;
-    std::string                   name;
-    std::string                   since;
+    std::string                   newIdType  = ""; // client only
+    bool                          destructor = false;
 };
 
 struct SInterface {
-    std::vector<SRequest> requests;
-    std::vector<SEvent>   events;
-    std::string           name;
-    int                   version = 1;
+    std::vector<SWaylandFunction> requests;
+    std::vector<SWaylandFunction> events;
+    std::string                   name;
+    int                           version = 1;
 };
 
 struct SEnum {
@@ -187,12 +186,17 @@ void parseXML(pugi::xml_document& doc) {
         }
 
         for (auto& rq : iface.children("request")) {
-            SRequest srq;
-            srq.name  = rq.attribute("name").as_string();
-            srq.since = rq.attribute("since").as_string();
+            SWaylandFunction srq;
+            srq.name       = rq.attribute("name").as_string();
+            srq.since      = rq.attribute("since").as_string();
+            srq.destructor = rq.attribute("type").as_string() == std::string{"destructor"};
 
             for (auto& arg : rq.children("arg")) {
                 SRequestArgument sargm;
+                if (arg.attribute("type").as_string() == std::string{"new_id"} && clientCode)
+                    srq.newIdType = arg.attribute("interface").as_string();
+
+                sargm.newType   = arg.attribute("type").as_string() == std::string{"new_id"} && clientCode;
                 sargm.name      = sanitize(arg.attribute("name").as_string());
                 sargm.wlType    = arg.attribute("type").as_string();
                 sargm.interface = arg.attribute("interface").as_string();
@@ -206,9 +210,10 @@ void parseXML(pugi::xml_document& doc) {
         }
 
         for (auto& ev : iface.children("event")) {
-            SEvent sev;
-            sev.name  = ev.attribute("name").as_string();
-            sev.since = ev.attribute("since").as_string();
+            SWaylandFunction sev;
+            sev.name       = ev.attribute("name").as_string();
+            sev.since      = ev.attribute("since").as_string();
+            sev.destructor = ev.attribute("type").as_string() == std::string{"destructor"};
 
             for (auto& arg : ev.children("arg")) {
                 SRequestArgument sargm;
@@ -231,19 +236,20 @@ void parseXML(pugi::xml_document& doc) {
 void parseHeader() {
 
     // add some boilerplate
-    HEADER += R"#(#pragma once
+    HEADER += std::format(R"#(#pragma once
 
 #include <functional>
 #include <cstdint>
 #include <string>
-#include <wayland-server.h>
+{}
 
 #define F std::function
 
-struct wl_client;
-struct wl_resource;
+{}
 
-)#";
+)#",
+                          (clientCode ? "#include <wayland-client.h>" : "#include <wayland-server.h>"),
+                          (clientCode ? "struct wl_proxy;\ntypedef wl_proxy wl_resource;" : "struct wl_client;\nstruct wl_resource;"));
 
     // parse all enums
     if (!waylandEnums) {
@@ -294,12 +300,18 @@ struct wl_resource;
         const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
 
         // begin the class
-        HEADER += std::format(R"#(
+        HEADER +=
+            std::format(R"#(
 class {} {{
   public:
-    {}(wl_client* client, uint32_t version, uint32_t id);
+    {}({});
     ~{}();
 
+)#",
+                        IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, (clientCode ? "wl_resource*" : "wl_client* client, uint32_t version, uint32_t id"), IFACE_CLASS_NAME_CAMEL);
+
+        if (!clientCode) {
+            HEADER += std::format(R"#(
     // set a listener for when this resource is _being_ destroyed
     void setOnDestroy(F<void({}*)> handler) {{
         onDestroy = handler;
@@ -314,7 +326,7 @@ class {} {{
     void* data() {{
         return pData;
     }}
-    
+
     // get the raw wl_resource ptr
     wl_resource* resource() {{
         return pResource;
@@ -339,17 +351,41 @@ class {} {{
     int version() {{
         return wl_resource_get_version(pResource);
     }}
+            )#",
+                                  IFACE_CLASS_NAME_CAMEL);
+        } else {
+            HEADER += R"#(
+    // set the data for this resource
+    void setData(void* data) {{
+        pData = data;
+    }}
 
-)#",
-                              IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+    // get the data for this resource
+    void* data() {{
+        return pData;
+    }}
+    
+    // get the raw wl_resource (wl_proxy) ptr
+    wl_resource* resource() {{
+        return pResource;
+    }}
+
+    // get the resource version
+    int version() {{
+        return wl_proxy_get_version(pResource);
+    }}
+            )#";
+        }
 
         // add all setters for requests
         HEADER += "\n    // --------------- Requests --------------- //\n\n";
 
-        for (auto& rq : iface.requests) {
+        for (auto& rq : (clientCode ? iface.events : iface.requests)) {
 
             std::string args = ", ";
             for (auto& arg : rq.args) {
+                if (arg.newType)
+                    continue;
                 args += WPTypeToCType(arg, false) + ", ";
             }
 
@@ -363,9 +399,11 @@ class {} {{
 
         HEADER += "\n    // --------------- Events --------------- //\n\n";
 
-        for (auto& ev : iface.events) {
+        for (auto& ev : (!clientCode ? iface.events : iface.requests)) {
             std::string args = "";
             for (auto& arg : ev.args) {
+                if (arg.newType)
+                    continue;
                 args += WPTypeToCType(arg, true) + ", ";
             }
 
@@ -374,22 +412,26 @@ class {} {{
                 args.pop_back();
             }
 
-            HEADER += std::format("    void {}({});\n", camelize("send_" + ev.name), args);
+            HEADER += std::format("    {} {}({});\n", ev.newIdType.empty() ? "void" : "wl_proxy*", camelize("send_" + ev.name), args);
         }
 
         // dangerous ones
-        for (auto& ev : iface.events) {
-            std::string args = "";
-            for (auto& arg : ev.args) {
-                args += WPTypeToCType(arg, true, true) + ", ";
-            }
+        if (!clientCode) {
+            for (auto& ev : (!clientCode ? iface.events : iface.requests)) {
+                std::string args = "";
+                for (auto& arg : ev.args) {
+                    if (arg.newType)
+                        continue;
+                    args += WPTypeToCType(arg, true, true) + ", ";
+                }
 
-            if (!args.empty()) {
-                args.pop_back();
-                args.pop_back();
-            }
+                if (!args.empty()) {
+                    args.pop_back();
+                    args.pop_back();
+                }
 
-            HEADER += std::format("    void {}({});\n", camelize("send_" + ev.name + "_raw"), args);
+                HEADER += std::format("    void {}({});\n", camelize("send_" + ev.name + "_raw"), args);
+            }
         }
 
         // end events
@@ -400,10 +442,12 @@ class {} {{
         // start requests storage
         HEADER += "    struct {\n";
 
-        for (auto& rq : iface.requests) {
+        for (auto& rq : (clientCode ? iface.events : iface.requests)) {
 
             std::string args = ", ";
             for (auto& arg : rq.args) {
+                if (arg.newType)
+                    continue;
                 args += WPTypeToCType(arg, false) + ", ";
             }
 
@@ -419,7 +463,8 @@ class {} {{
         HEADER += "    } requests;\n";
 
         // constant resource stuff
-        HEADER += std::format(R"#(
+        if (!clientCode) {
+            HEADER += std::format(R"#(
     void onDestroyCalled();
 
     F<void({}*)> onDestroy;
@@ -429,7 +474,13 @@ class {} {{
     wl_listener resourceDestroyListener;
 
     void* pData = nullptr;)#",
-                              IFACE_CLASS_NAME_CAMEL);
+                                  IFACE_CLASS_NAME_CAMEL);
+        } else {
+            HEADER += R"#(
+    wl_resource* pResource = nullptr;
+
+    void* pData = nullptr;)#";
+        }
 
         HEADER += "\n};\n\n";
     }
@@ -513,11 +564,13 @@ static const wl_interface* dummyTypes[] = { nullptr };
         const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
 
         // create handlers
-        for (auto& rq : iface.requests) {
+        for (auto& rq : (clientCode ? iface.events : iface.requests)) {
             const auto  REQUEST_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name);
 
             std::string argsC = ", ";
             for (auto& arg : rq.args) {
+                if (arg.newType)
+                    continue;
                 argsC += WPTypeToCType(arg, false) + " " + arg.name + ", ";
             }
 
@@ -534,24 +587,37 @@ static const wl_interface* dummyTypes[] = { nullptr };
                 argsN.pop_back();
             }
 
-            SOURCE += std::format(R"#(
+            if (!clientCode) {
+                SOURCE += std::format(R"#(
 static void {}(wl_client* client, wl_resource* resource{}) {{
     const auto PO = ({}*)wl_resource_get_user_data(resource);
     if (PO && PO->requests.{})
         PO->requests.{}(PO{});
 }}
 )#",
-                                  REQUEST_NAME, argsC, IFACE_CLASS_NAME_CAMEL, camelize(rq.name), camelize(rq.name), argsN);
+                                      REQUEST_NAME, argsC, IFACE_CLASS_NAME_CAMEL, camelize(rq.name), camelize(rq.name), argsN);
+            } else {
+                SOURCE += std::format(R"#(
+static void {}(void* data, void* resource{}) {{
+    const auto PO = ({}*)data;
+    if (PO && PO->requests.{})
+        PO->requests.{}(PO{});
+}}
+)#",
+                                      REQUEST_NAME, argsC, IFACE_CLASS_NAME_CAMEL, camelize(rq.name), camelize(rq.name), argsN);
+            }
         }
 
         // destroy handler
-        SOURCE += std::format(R"#(
+        if (!clientCode) {
+            SOURCE += std::format(R"#(
 static void _{}__DestroyListener(wl_listener* l, void* d) {{
     {}* pResource = wl_container_of(l, pResource, resourceDestroyListener);
     pResource->onDestroyCalled();
 }}
 )#",
-                              IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+        }
 
         // create vtable
 
@@ -562,7 +628,7 @@ static const void* {}[] = {{
 )#",
                               IFACE_VTABLE_NAME);
 
-        for (auto& rq : iface.requests) {
+        for (auto& rq : (clientCode ? iface.events : iface.requests)) {
             const auto REQUEST_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name);
             SOURCE += std::format("    (void*){},\n", REQUEST_NAME);
         }
@@ -572,11 +638,13 @@ static const void* {}[] = {{
         // create events
 
         int evid = 0;
-        for (auto& ev : iface.events) {
+        for (auto& ev : (!clientCode ? iface.events : iface.requests)) {
             const auto  EVENT_NAME = camelize("send_" + ev.name);
 
             std::string argsC = "";
             for (auto& arg : ev.args) {
+                if (arg.newType)
+                    continue;
                 argsC += WPTypeToCType(arg, true) + " " + arg.name + ", ";
             }
 
@@ -587,60 +655,85 @@ static const void* {}[] = {{
 
             std::string argsN = ", ";
             for (auto& arg : ev.args) {
+                if (arg.newType)
+                    continue;
                 if (!WPTypeToCType(arg, true).starts_with("C"))
                     argsN += arg.name + ", ";
                 else
-                    argsN += arg.name + "->pResource, ";
+                    argsN += (arg.name + " ? " + arg.name + "->pResource : nullptr, ");
             }
 
             argsN.pop_back();
             argsN.pop_back();
 
-            SOURCE += std::format(R"#(
+            if (!clientCode) {
+                SOURCE += std::format(R"#(
 void {}::{}({}) {{
     if (!pResource)
         return;
     wl_resource_post_event(pResource, {}{});
 }}
 )#",
-                                  IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
+                                      IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
+            } else {
+                std::string retType    = ev.newIdType.empty() ? "void" : "wl_proxy";
+                std::string ptrRetType = ev.newIdType.empty() ? "void" : "wl_proxy*";
+                std::string flags      = ev.destructor ? "1" : "0";
+                SOURCE += std::format(R"#(
+{} {}::{}({}) {{
+    if (!pResource)
+        return{};
+    
+    auto proxy = wl_proxy_marshal_flags((wl_proxy*)pResource, {}, {}, wl_proxy_get_version((wl_proxy*)pResource), {}{}{});{}
+}}
+)#",
+                                      ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"), evid,
+                                      (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags, (!ev.newIdType.empty() ? ", nullptr" : ""), argsN,
+                                      (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return proxy;"));
+            }
 
             evid++;
         }
 
         // dangerous
-        evid = 0;
-        for (auto& ev : iface.events) {
-            const auto  EVENT_NAME = camelize("send_" + ev.name + "_raw");
+        if (!clientCode) {
+            evid = 0;
+            for (auto& ev : iface.events) {
+                const auto  EVENT_NAME = camelize("send_" + ev.name + "_raw");
 
-            std::string argsC = "";
-            for (auto& arg : ev.args) {
-                argsC += WPTypeToCType(arg, true, true) + " " + arg.name + ", ";
-            }
+                std::string argsC = "";
+                for (auto& arg : ev.args) {
+                    if (arg.newType)
+                        continue;
+                    argsC += WPTypeToCType(arg, true, true) + " " + arg.name + ", ";
+                }
 
-            if (!argsC.empty()) {
-                argsC.pop_back();
-                argsC.pop_back();
-            }
+                if (!argsC.empty()) {
+                    argsC.pop_back();
+                    argsC.pop_back();
+                }
 
-            std::string argsN = ", ";
-            for (auto& arg : ev.args) {
-                argsN += arg.name + ", ";
-            }
+                std::string argsN = ", ";
+                for (auto& arg : ev.args) {
+                    if (arg.newType)
+                        continue;
+                    argsN += arg.name + ", ";
+                }
 
-            argsN.pop_back();
-            argsN.pop_back();
+                argsN.pop_back();
+                argsN.pop_back();
 
-            SOURCE += std::format(R"#(
+                SOURCE += std::format(R"#(
 void {}::{}({}) {{
     if (!pResource)
         return;
     wl_resource_post_event(pResource, {}{});
 }}
 )#",
-                                  IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
+                                      IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, evid, argsN);
 
-            evid++;
+                evid++;
+            }
         }
 
         // wayland interfaces and stuff
@@ -687,49 +780,52 @@ void {}::{}({}) {{
         const auto MESSAGE_NAME_EVENTS   = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_events");
 
         // message
-        if (iface.requests.size() > 0) {
-            SOURCE += std::format(R"#(
+        if (!noInterfaces) {
+            if (iface.requests.size() > 0) {
+                SOURCE += std::format(R"#(
 static const wl_message {}[] = {{
 )#",
-                                  MESSAGE_NAME_REQUESTS);
-            for (auto& rq : iface.requests) {
-                // create type table
-                const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
+                                      MESSAGE_NAME_REQUESTS);
+                for (auto& rq : iface.requests) {
+                    // create type table
+                    const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
-                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                }
+
+                SOURCE += "};\n";
             }
 
-            SOURCE += "};\n";
-        }
-
-        if (iface.events.size() > 0) {
-            SOURCE += std::format(R"#(
+            if (iface.events.size() > 0) {
+                SOURCE += std::format(R"#(
 static const wl_message {}[] = {{
 )#",
-                                  MESSAGE_NAME_EVENTS);
-            for (auto& ev : iface.events) {
-                // create type table
-                const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
+                                      MESSAGE_NAME_EVENTS);
+                for (auto& ev : iface.events) {
+                    // create type table
+                    const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
 
-                SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                }
+
+                SOURCE += "};\n";
             }
 
-            SOURCE += "};\n";
-        }
-
-        // iface
-        SOURCE += std::format(R"#(
+            // iface
+            SOURCE += std::format(R"#(
 const wl_interface {} = {{
     "{}", {},
     {}, {},
     {}, {},
 }};
 )#",
-                              IFACE_WL_NAME, iface.name, iface.version, iface.requests.size(), (iface.requests.size() > 0 ? MESSAGE_NAME_REQUESTS : "nullptr"), iface.events.size(),
-                              (iface.events.size() > 0 ? MESSAGE_NAME_EVENTS : "nullptr"));
+                                  IFACE_WL_NAME, iface.name, iface.version, iface.requests.size(), (iface.requests.size() > 0 ? MESSAGE_NAME_REQUESTS : "nullptr"),
+                                  iface.events.size(), (iface.events.size() > 0 ? MESSAGE_NAME_EVENTS : "nullptr"));
+        }
 
         // protocol body
-        SOURCE += std::format(R"#(
+        if (!clientCode) {
+            SOURCE += std::format(R"#(
 {}::{}(wl_client* client, uint32_t version, uint32_t id) {{
     pResource = wl_resource_create(client, &{}, version, id);
 
@@ -770,10 +866,28 @@ void {}::onDestroyCalled() {{
         onDestroy(this);
 }}
 )#",
-                              IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_NAME + "_interface", IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL,
-                              IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_NAME + "_interface", IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL,
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+        } else {
+            SOURCE += std::format(R"#(
+{}::{}(wl_resource* resource) {{
+    pResource = resource;
 
-        for (auto& rq : iface.requests) {
+    if (!pResource)
+        return;
+
+    wl_proxy_set_user_data(pResource, this);
+    wl_proxy_add_listener(pResource, (void (**)(void))&{}, this);
+}}
+
+{}::~{}() {{
+    ;
+}}
+)#",
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+        }
+
+        for (auto& rq : (clientCode ? iface.events : iface.requests)) {
             std::string args = ", ";
             for (auto& arg : rq.args) {
                 args += WPTypeToCType(arg, false) + ", ";
@@ -806,6 +920,16 @@ int main(int argc, char** argv, char** envp) {
         if (curarg == "-v" || curarg == "--version") {
             std::cout << SCANNER_VERSION << "\n";
             return 0;
+        }
+
+        if (curarg == "-c" || curarg == "--client") {
+            clientCode = true;
+            continue;
+        }
+
+        if (curarg == "--no-interfaces") {
+            noInterfaces = true;
+            continue;
         }
 
         if (curarg == "--wayland-enums") {
