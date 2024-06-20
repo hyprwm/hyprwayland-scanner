@@ -117,7 +117,7 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
         if (!arg.interface.empty() && event) {
             for (auto& i : XMLDATA.ifaces) {
                 if (i.name == arg.interface)
-                    return camelize("C_" + arg.interface + "*");
+                    return camelize((clientCode ? "CC_" : "C_") + arg.interface + "*");
             }
             return "wl_resource*";
         }
@@ -128,7 +128,7 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
         if (!arg.interface.empty() && event && !ignoreTypes) {
             for (auto& i : XMLDATA.ifaces) {
                 if (i.name == arg.interface)
-                    return camelize("C_" + arg.interface + "*");
+                    return camelize((clientCode ? "CC_" : "C_") + arg.interface + "*");
             }
         }
         return "wl_resource*";
@@ -264,13 +264,13 @@ void parseHeader() {
 
     // fw declare all classes
     for (auto& iface : XMLDATA.ifaces) {
-        const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
+        const auto IFACE_CLASS_NAME_CAMEL = camelize((clientCode ? "CC_" : "C_") + iface.name);
         HEADER += std::format("\nclass {};", IFACE_CLASS_NAME_CAMEL);
 
         for (auto& rq : iface.requests) {
             for (auto& arg : rq.args) {
                 if (!arg.interface.empty()) {
-                    HEADER += std::format("\nclass {};", camelize("C_" + arg.interface));
+                    HEADER += std::format("\nclass {};", camelize((clientCode ? "CC_" : "C_")+ arg.interface));
                 }
             }
         }
@@ -278,7 +278,7 @@ void parseHeader() {
         for (auto& rq : iface.events) {
             for (auto& arg : rq.args) {
                 if (!arg.interface.empty()) {
-                    HEADER += std::format("\nclass {};", camelize("C_" + arg.interface));
+                    HEADER += std::format("\nclass {};", camelize((clientCode ? "CC_" : "C_") + arg.interface));
                 }
             }
         }
@@ -297,7 +297,7 @@ void parseHeader() {
 
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_NAME_CAMEL       = camelize(iface.name);
-        const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
+        const auto IFACE_CLASS_NAME_CAMEL = camelize((clientCode ? "CC_" : "C_") + iface.name);
 
         // begin the class
         HEADER +=
@@ -479,6 +479,8 @@ class {} {{
             HEADER += R"#(
     wl_resource* pResource = nullptr;
 
+    bool destroyed = false;
+
     void* pData = nullptr;)#";
         }
 
@@ -561,7 +563,7 @@ static const wl_interface* dummyTypes[] = { nullptr };
         const auto IFACE_WL_NAME          = iface.name + "_interface";
         const auto IFACE_NAME             = iface.name;
         const auto IFACE_NAME_CAMEL       = camelize(iface.name);
-        const auto IFACE_CLASS_NAME_CAMEL = camelize("C_" + iface.name);
+        const auto IFACE_CLASS_NAME_CAMEL = camelize((clientCode ? "CC_" : "C_") + iface.name);
 
         // create handlers
         for (auto& rq : (clientCode ? iface.events : iface.requests)) {
@@ -682,12 +684,12 @@ void {}::{}({}) {{
                 SOURCE += std::format(R"#(
 {} {}::{}({}) {{
     if (!pResource)
-        return{};
+        return{};{}
     
     auto proxy = wl_proxy_marshal_flags((wl_proxy*)pResource, {}, {}, wl_proxy_get_version((wl_proxy*)pResource), {}{}{});{}
 }}
 )#",
-                                      ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"), evid,
+                                      ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"), (ev.destructor ? "\n    destroyed = true;" : ""), evid,
                                       (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags, (!ev.newIdType.empty() ? ", nullptr" : ""), argsN,
                                       (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return proxy;"));
             }
@@ -876,12 +878,12 @@ void {}::onDestroyCalled() {{
     if (!pResource)
         return;
 
-    wl_proxy_set_user_data(pResource, this);
     wl_proxy_add_listener(pResource, (void (**)(void))&{}, this);
 }}
 
 {}::~{}() {{
-    ;
+    if (!destroyed)
+        wl_proxy_destroy(pResource);
 }}
 )#",
                                   IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
