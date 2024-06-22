@@ -871,6 +871,16 @@ void {}::onDestroyCalled() {{
                                   IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_NAME + "_interface", IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL,
                                   IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
         } else {
+            std::string DTOR_FUNC = "";
+
+            for (auto& rq : iface.requests) {
+                if (!rq.destructor)
+                    continue;
+
+                DTOR_FUNC = camelize("send_" + rq.name) + "()";
+                break;
+            }
+
             SOURCE += std::format(R"#(
 {}::{}(wl_resource* resource) {{
     pResource = resource;
@@ -883,10 +893,10 @@ void {}::onDestroyCalled() {{
 
 {}::~{}() {{
     if (!destroyed)
-        wl_proxy_destroy(pResource);
+        {};
 }}
 )#",
-                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_VTABLE_NAME, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, DTOR_FUNC);
         }
 
         for (auto& rq : (clientCode ? iface.events : iface.requests)) {
