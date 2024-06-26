@@ -270,7 +270,7 @@ void parseHeader() {
         for (auto& rq : iface.requests) {
             for (auto& arg : rq.args) {
                 if (!arg.interface.empty()) {
-                    HEADER += std::format("\nclass {};", camelize((clientCode ? "CC_" : "C_")+ arg.interface));
+                    HEADER += std::format("\nclass {};", camelize((clientCode ? "CC_" : "C_") + arg.interface));
                 }
             }
         }
@@ -300,15 +300,20 @@ void parseHeader() {
         const auto IFACE_CLASS_NAME_CAMEL = camelize((clientCode ? "CC_" : "C_") + iface.name);
 
         // begin the class
-        HEADER +=
-            std::format(R"#(
+        HEADER += std::format(R"#(
+struct {}DestroyWrapper {{
+    wl_listener listener;
+    {}* parent = nullptr;
+}};
+
 class {} {{
   public:
     {}({});
     ~{}();
 
 )#",
-                        IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, (clientCode ? "wl_resource*" : "wl_client* client, uint32_t version, uint32_t id"), IFACE_CLASS_NAME_CAMEL);
+                              IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL,
+                              (clientCode ? "wl_resource*" : "wl_client* client, uint32_t version, uint32_t id"), IFACE_CLASS_NAME_CAMEL);
 
         if (!clientCode) {
             HEADER += std::format(R"#(
@@ -364,7 +369,7 @@ class {} {{
     void* data() {{
         return pData;
     }}
-    
+
     // get the raw wl_resource (wl_proxy) ptr
     wl_resource* resource() {{
         return pResource;
@@ -471,10 +476,10 @@ class {} {{
 
     wl_resource* pResource = nullptr;
 
-    wl_listener resourceDestroyListener;
+    {}DestroyWrapper resourceDestroyListener;
 
     void* pData = nullptr;)#",
-                                  IFACE_CLASS_NAME_CAMEL);
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
         } else {
             HEADER += R"#(
     wl_resource* pResource = nullptr;
@@ -614,11 +619,12 @@ static void {}(void* data, void* resource{}) {{
         if (!clientCode) {
             SOURCE += std::format(R"#(
 static void _{}__DestroyListener(wl_listener* l, void* d) {{
-    {}* pResource = wl_container_of(l, pResource, resourceDestroyListener);
+    {}DestroyWrapper *wrap = wl_container_of(l, wrap, listener);
+    {}* pResource = wrap->parent;
     pResource->onDestroyCalled();
 }}
 )#",
-                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
         }
 
         // create vtable
@@ -685,13 +691,13 @@ void {}::{}({}) {{
 {} {}::{}({}) {{
     if (!pResource)
         return{};{}
-    
+
     auto proxy = wl_proxy_marshal_flags((wl_proxy*)pResource, {}, {}, wl_proxy_get_version((wl_proxy*)pResource), {}{}{});{}
 }}
 )#",
-                                      ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"), (ev.destructor ? "\n    destroyed = true;" : ""), evid,
-                                      (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags, (!ev.newIdType.empty() ? ", nullptr" : ""), argsN,
-                                      (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return proxy;"));
+                                      ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"),
+                                      (ev.destructor ? "\n    destroyed = true;" : ""), evid, (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags,
+                                      (!ev.newIdType.empty() ? ", nullptr" : ""), argsN, (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return proxy;"));
             }
 
             evid++;
@@ -835,16 +841,17 @@ const wl_interface {} = {{
         return;
 
     wl_resource_set_user_data(pResource, this);
-    wl_list_init(&resourceDestroyListener.link);
-    resourceDestroyListener.notify = _{}__DestroyListener;
-    wl_resource_add_destroy_listener(pResource, &resourceDestroyListener);
+    wl_list_init(&resourceDestroyListener.listener.link);
+    resourceDestroyListener.listener.notify = _{}__DestroyListener;
+    resourceDestroyListener.parent = this;
+    wl_resource_add_destroy_listener(pResource, &resourceDestroyListener.listener);
 
     wl_resource_set_implementation(pResource, {}, this, nullptr);
 }}
 
 {}::~{}() {{
-    wl_list_remove(&resourceDestroyListener.link);
-    wl_list_init(&resourceDestroyListener.link);
+    wl_list_remove(&resourceDestroyListener.listener.link);
+    wl_list_init(&resourceDestroyListener.listener.link);
 
     // if we still own the wayland resource,
     // it means we need to destroy it.
@@ -856,8 +863,8 @@ const wl_interface {} = {{
 
 void {}::onDestroyCalled() {{
     wl_resource_set_user_data(pResource, nullptr);
-    wl_list_remove(&resourceDestroyListener.link);
-    wl_list_init(&resourceDestroyListener.link);
+    wl_list_remove(&resourceDestroyListener.listener.link);
+    wl_list_init(&resourceDestroyListener.listener.link);
 
     // set the resource to nullptr,
     // as it will be freed. If the consumer does not destroy this resource
