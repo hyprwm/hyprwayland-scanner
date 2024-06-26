@@ -299,12 +299,19 @@ void parseHeader() {
         const auto IFACE_NAME_CAMEL       = camelize(iface.name);
         const auto IFACE_CLASS_NAME_CAMEL = camelize((clientCode ? "CC_" : "C_") + iface.name);
 
-        // begin the class
-        HEADER += std::format(R"#(
+        if (!clientCode) {
+            HEADER += std::format(R"#(
 struct {}DestroyWrapper {{
     wl_listener listener;
     {}* parent = nullptr;
 }};
+            )#",
+                                  IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
+        }
+
+        // begin the class
+        HEADER +=
+            std::format(R"#(
 
 class {} {{
   public:
@@ -312,8 +319,7 @@ class {} {{
     ~{}();
 
 )#",
-                              IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL,
-                              (clientCode ? "wl_resource*" : "wl_client* client, uint32_t version, uint32_t id"), IFACE_CLASS_NAME_CAMEL);
+                        IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, (clientCode ? "wl_resource*" : "wl_client* client, uint32_t version, uint32_t id"), IFACE_CLASS_NAME_CAMEL);
 
         if (!clientCode) {
             HEADER += std::format(R"#(
