@@ -894,6 +894,9 @@ void {}::onDestroyCalled() {{
                 break;
             }
 
+            if (DTOR_FUNC.empty())
+                DTOR_FUNC = "wl_proxy_destroy(pResource)";
+
             SOURCE += std::format(R"#(
 {}::{}(wl_resource* resource) {{
     pResource = resource;
