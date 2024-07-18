@@ -29,13 +29,15 @@
       (builtins.substring 4 2 longDate)
       (builtins.substring 6 2 longDate)
     ]);
+
+    version = lib.removeSuffix "\n" (builtins.readFile ./VERSION);
   in {
     overlays = {
       default = self.overlays.hyprwayland-scanner;
       hyprwayland-scanner = final: prev: {
         hyprwayland-scanner = final.callPackage ./nix/default.nix {
           stdenv = final.gcc13Stdenv;
-          version = "0.1.0" + "+date=" + (mkDate (self.lastModifiedDate or "19700101")) + "_" + (self.shortRev or "dirty");
+          version = version + "+date=" + (mkDate (self.lastModifiedDate or "19700101")) + "_" + (self.shortRev or "dirty");
         };
       };
     };
