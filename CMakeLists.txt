@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 
-file(READ "${CMAKE_SOURCE_DIR}VERSION" VER_RAW)
+file(READ "${CMAKE_SOURCE_DIR}/VERSION" VER_RAW)
 string(STRIP ${VER_RAW} VERSION)
 
 project(
