@@ -7,6 +7,11 @@ A Hyprland implementation of wayland-scanner, in and for C++.
 hyprwayland-scanner '/path/to/proto' '/path/to/output/directory'
 ```
 
+### Options
+
+- `--client` -> generate client code
+- `--wayland-enums` -> use wayland enum naming (snake instead of camel)
+
 ## Dependencies
 
 Requires a compiler with C++23 support.
