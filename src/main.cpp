@@ -114,7 +114,7 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
             }
 
         // iface
-        if (!arg.interface.empty() && event) {
+        if (!arg.interface.empty() && (event || clientCode)) {
             for (auto& i : XMLDATA.ifaces) {
                 if (i.name == arg.interface)
                     return camelize((clientCode ? "CC_" : "C_") + arg.interface + "*");
