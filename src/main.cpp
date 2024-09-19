@@ -107,14 +107,18 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
             return "uint32_t";
 
         // enum
-        if (!arg.enumName.empty())
+        if (!arg.enumName.empty()) {
             for (auto& e : XMLDATA.enums) {
                 if (e.nameOriginal == arg.enumName)
                     return e.name;
             }
+        }
+
+        if (!event && clientCode)
+            return "wl_proxy*";
 
         // iface
-        if (!arg.interface.empty() && (event || clientCode)) {
+        if (!arg.interface.empty() && event) {
             for (auto& i : XMLDATA.ifaces) {
                 if (i.name == arg.interface)
                     return camelize((clientCode ? "CC_" : "C_") + arg.interface + "*");
