@@ -112,9 +112,10 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
                 if (e.nameOriginal == arg.enumName)
                     return e.name;
             }
+            return "uint32_t";
         }
 
-        if (!event && clientCode)
+        if (!event && clientCode && arg.wlType == "new_id")
             return "wl_proxy*";
 
         // iface
