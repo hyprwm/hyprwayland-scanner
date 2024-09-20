@@ -1,6 +1,9 @@
 # hyprwayland-scanner
 A Hyprland implementation of wayland-scanner, in and for C++.
 
+hw-s automatically generates properly RAII-ready, modern C++ bindings for Wayland protocols, for
+either servers or clients.
+
 ## Usage
 
 ```sh
