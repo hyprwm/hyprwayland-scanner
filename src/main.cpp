@@ -675,8 +675,8 @@ static const void* {}[] = {{
             std::string argsN = ", ";
             for (auto& arg : ev.args) {
                 if (arg.newType)
-                    continue;
-                if (!WPTypeToCType(arg, true).starts_with("C"))
+                    argsN += "nullptr, ";
+                else if (!WPTypeToCType(arg, true).starts_with("C"))
                     argsN += arg.name + ", ";
                 else
                     argsN += (arg.name + " ? " + arg.name + "->pResource : nullptr, ");
@@ -703,12 +703,12 @@ void {}::{}({}) {{
     if (!pResource)
         return{};{}
 
-    auto proxy = wl_proxy_marshal_flags((wl_proxy*)pResource, {}, {}, wl_proxy_get_version((wl_proxy*)pResource), {}{}{});{}
+    auto proxy = wl_proxy_marshal_flags((wl_proxy*)pResource, {}, {}, wl_proxy_get_version((wl_proxy*)pResource), {}{});{}
 }}
 )#",
                                       ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"),
-                                      (ev.destructor ? "\n    destroyed = true;" : ""), evid, (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags,
-                                      (!ev.newIdType.empty() ? ", nullptr" : ""), argsN, (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return proxy;"));
+                                      (ev.destructor ? "\n    destroyed = true;" : ""), evid, (ev.newIdType.empty() ? "nullptr" : "&" + ev.newIdType + "_interface"), flags, argsN,
+                                      (ev.newIdType.empty() ? "\n    proxy;" : "\n\n    return proxy;"));
             }
 
             evid++;
