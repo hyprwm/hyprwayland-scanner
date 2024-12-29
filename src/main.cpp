@@ -47,6 +47,10 @@ struct {
     std::vector<SEnum>      enums;
 } XMLDATA;
 
+const char* resourceName() {
+    return clientCode ? "wl_proxy" : "wl_resource";
+}
+
 std::string sanitize(const std::string& in) {
     if (in == "namespace")
         return "namespace_";
@@ -124,7 +128,7 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
                 if (i.name == arg.interface)
                     return camelize((clientCode ? "CC_" : "C_") + arg.interface + "*");
             }
-            return "wl_resource*";
+            return std::string{resourceName()} + "*";
         }
 
         return "uint32_t";
@@ -136,7 +140,7 @@ std::string WPTypeToCType(const SRequestArgument& arg, bool event /* events pass
                     return camelize((clientCode ? "CC_" : "C_") + arg.interface + "*");
             }
         }
-        return "wl_resource*";
+        return std::string{resourceName()} + "*";
     }
     if (arg.wlType == "int" || arg.wlType == "fd")
         return "int32_t";
@@ -241,7 +245,8 @@ void parseXML(pugi::xml_document& doc) {
 void parseHeader() {
 
     // add some boilerplate
-    HEADER += std::format(R"#(#pragma once
+    HEADER +=
+        std::format(R"#(#pragma once
 
 #include <functional>
 #include <cstdint>
@@ -253,8 +258,7 @@ void parseHeader() {
 {}
 
 )#",
-                          (clientCode ? "#include <wayland-client.h>" : "#include <wayland-server.h>"),
-                          (clientCode ? "struct wl_proxy;\n#define wl_resource wl_proxy" : "struct wl_client;\nstruct wl_resource;"));
+                    (clientCode ? "#include <wayland-client.h>" : "#include <wayland-server.h>"), (clientCode ? "struct wl_proxy;" : "struct wl_client;\nstruct wl_resource;"));
 
     // parse all enums
     if (!waylandEnums) {
@@ -324,7 +328,7 @@ class {} {{
     ~{}();
 
 )#",
-                        IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, (clientCode ? "wl_resource*" : "wl_client* client, uint32_t version, uint32_t id"), IFACE_CLASS_NAME_CAMEL);
+                        IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL, (clientCode ? "wl_proxy*" : "wl_client* client, uint32_t version, uint32_t id"), IFACE_CLASS_NAME_CAMEL);
 
         if (!clientCode) {
             HEADER += std::format(R"#(
@@ -382,7 +386,12 @@ class {} {{
     }}
 
     // get the raw wl_resource (wl_proxy) ptr
-    wl_resource* resource() {{
+    wl_proxy* resource() {{
+        return pResource;
+    }}
+
+    // get the raw wl_proxy ptr
+    wl_proxy* proxy() {{
         return pResource;
     }}
 
@@ -493,7 +502,7 @@ class {} {{
                                   IFACE_CLASS_NAME_CAMEL, IFACE_CLASS_NAME_CAMEL);
         } else {
             HEADER += R"#(
-    wl_resource* pResource = nullptr;
+    wl_proxy* pResource = nullptr;
 
     bool destroyed = false;
 
@@ -503,7 +512,7 @@ class {} {{
         HEADER += "\n};\n\n";
     }
 
-    HEADER += "\n\n#undef F\n#undef wl_resource\n";
+    HEADER += "\n\n#undef F\n";
 }
 
 void parseSource() {
@@ -903,7 +912,7 @@ void {}::onDestroyCalled() {{
                 DTOR_FUNC = "wl_proxy_destroy(pResource)";
 
             SOURCE += std::format(R"#(
-{}::{}(wl_resource* resource) {{
+{}::{}(wl_proxy* resource) {{
     pResource = resource;
 
     if (!pResource)
