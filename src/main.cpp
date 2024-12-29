@@ -254,7 +254,7 @@ void parseHeader() {
 
 )#",
                           (clientCode ? "#include <wayland-client.h>" : "#include <wayland-server.h>"),
-                          (clientCode ? "struct wl_proxy;\ntypedef wl_proxy wl_resource;" : "struct wl_client;\nstruct wl_resource;"));
+                          (clientCode ? "struct wl_proxy;\n#define wl_resource wl_proxy" : "struct wl_client;\nstruct wl_resource;"));
 
     // parse all enums
     if (!waylandEnums) {
@@ -503,7 +503,7 @@ class {} {{
         HEADER += "\n};\n\n";
     }
 
-    HEADER += "\n\n#undef F\n";
+    HEADER += "\n\n#undef F\n#undef wl_resource\n";
 }
 
 void parseSource() {
