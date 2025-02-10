@@ -712,7 +712,7 @@ void {}::{}({}) {{
     if (!pResource)
         return{};{}
 
-    auto proxy = wl_proxy_marshal_flags((wl_proxy*)pResource, {}, {}, wl_proxy_get_version((wl_proxy*)pResource), {}{});{}
+    auto proxy = wl_proxy_marshal_flags(pResource, {}, {}, wl_proxy_get_version(pResource), {}{});{}
 }}
 )#",
                                       ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"),
@@ -854,8 +854,8 @@ const wl_interface {} = {{
         // protocol body
         if (!clientCode) {
             SOURCE += std::format(R"#(
-{}::{}(wl_client* client, uint32_t version, uint32_t id) {{
-    pResource = wl_resource_create(client, &{}, version, id);
+{}::{}(wl_client* client, uint32_t version, uint32_t id) :
+    pResource(wl_resource_create(client, &{}, version, id)) {{
 
     if (!pResource)
         return;
@@ -912,8 +912,7 @@ void {}::onDestroyCalled() {{
                 DTOR_FUNC = "wl_proxy_destroy(pResource)";
 
             SOURCE += std::format(R"#(
-{}::{}(wl_proxy* resource) {{
-    pResource = resource;
+{}::{}(wl_proxy* resource) : pResource(resource) {{
 
     if (!pResource)
         return;
