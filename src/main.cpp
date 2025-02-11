@@ -818,7 +818,7 @@ static const wl_message {}[] = {{
                     // create type table
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
-                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
@@ -833,7 +833,7 @@ static const wl_message {}[] = {{
                     // create type table
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
 
-                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
@@ -842,9 +842,9 @@ static const wl_message {}[] = {{
             // iface
             SOURCE += std::format(R"#(
 const wl_interface {} = {{
-    "{}", {},
-    {}, {},
-    {}, {},
+    .name = "{}", .version = {},
+    .method_count = {}, .methods = {},
+    .event_count = {}, .events = {},
 }};
 )#",
                                   IFACE_WL_NAME, iface.name, iface.version, iface.requests.size(), (iface.requests.size() > 0 ? MESSAGE_NAME_REQUESTS : "nullptr"),
