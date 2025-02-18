@@ -712,7 +712,7 @@ void {}::{}({}) {{
     if (!pResource)
         return{};{}
 
-    auto proxy = wl_proxy_marshal_flags((wl_proxy*)pResource, {}, {}, wl_proxy_get_version((wl_proxy*)pResource), {}{});{}
+    auto proxy = wl_proxy_marshal_flags(pResource, {}, {}, wl_proxy_get_version(pResource), {}{});{}
 }}
 )#",
                                       ptrRetType, IFACE_CLASS_NAME_CAMEL, EVENT_NAME, argsC, (ev.newIdType.empty() ? "" : " nullptr"),
@@ -818,7 +818,7 @@ static const wl_message {}[] = {{
                     // create type table
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
-                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
@@ -833,7 +833,7 @@ static const wl_message {}[] = {{
                     // create type table
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
 
-                    SOURCE += std::format("    {{ \"{}\", \"{}\", {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
@@ -842,9 +842,9 @@ static const wl_message {}[] = {{
             // iface
             SOURCE += std::format(R"#(
 const wl_interface {} = {{
-    "{}", {},
-    {}, {},
-    {}, {},
+    .name = "{}", .version = {},
+    .method_count = {}, .methods = {},
+    .event_count = {}, .events = {},
 }};
 )#",
                                   IFACE_WL_NAME, iface.name, iface.version, iface.requests.size(), (iface.requests.size() > 0 ? MESSAGE_NAME_REQUESTS : "nullptr"),
@@ -854,8 +854,8 @@ const wl_interface {} = {{
         // protocol body
         if (!clientCode) {
             SOURCE += std::format(R"#(
-{}::{}(wl_client* client, uint32_t version, uint32_t id) {{
-    pResource = wl_resource_create(client, &{}, version, id);
+{}::{}(wl_client* client, uint32_t version, uint32_t id) :
+    pResource(wl_resource_create(client, &{}, version, id)) {{
 
     if (!pResource)
         return;
@@ -912,8 +912,7 @@ void {}::onDestroyCalled() {{
                 DTOR_FUNC = "wl_proxy_destroy(pResource)";
 
             SOURCE += std::format(R"#(
-{}::{}(wl_proxy* resource) {{
-    pResource = resource;
+{}::{}(wl_proxy* resource) : pResource(resource) {{
 
     if (!pResource)
         return;
