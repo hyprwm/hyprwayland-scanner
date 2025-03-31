@@ -41,8 +41,13 @@ pkg_check_modules(deps REQUIRED IMPORTED_TARGET pugixml)
 
 file(GLOB_RECURSE SRCFILES CONFIGURE_DEPENDS "src/*.cpp")
 add_executable(hyprwayland-scanner ${SRCFILES})
-target_link_libraries(hyprwayland-scanner PRIVATE rt Threads::Threads
+if(APPLE)
+  target_link_libraries(hyprwayland-scanner PRIVATE Threads::Threads
                                                   PkgConfig::deps)
+else()
+  target_link_libraries(hyprwayland-scanner PRIVATE rt Threads::Threads
+                                                  PkgConfig::deps)
+endif()
 
 configure_package_config_file(
   hyprwayland-scanner-config.cmake.in hyprwayland-scanner-config.cmake
