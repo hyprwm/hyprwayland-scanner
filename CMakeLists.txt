@@ -51,6 +51,7 @@ configure_package_config_file(
 write_basic_package_version_file(
   "hyprwayland-scanner-config-version.cmake"
   VERSION "${VERSION}"
+  ARCH_INDEPENDENT
   COMPATIBILITY AnyNewerVersion)
 
 # Installation
