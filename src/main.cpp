@@ -661,6 +661,10 @@ static const void* {}[] = {{
             SOURCE += std::format("    (void*){},\n", REQUEST_NAME);
         }
 
+        if ((clientCode ? iface.events : iface.requests).empty()) {
+            SOURCE += "    nullptr,\n";
+        }
+
         SOURCE += "};\n";
 
         // create events
@@ -818,7 +822,8 @@ static const wl_message {}[] = {{
                     // create type table
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
-                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", rq.name, argsToShort(rq.args, rq.since), rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", rq.name, argsToShort(rq.args, rq.since),
+                                          rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
@@ -833,7 +838,8 @@ static const wl_message {}[] = {{
                     // create type table
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
 
-                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", ev.name, argsToShort(ev.args, ev.since), ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                    SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", ev.name, argsToShort(ev.args, ev.since),
+                                          ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
