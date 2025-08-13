@@ -516,6 +516,8 @@ class {} {{
 }
 
 void parseSource() {
+    std::string DUMMY_TYPE_TABLE_NAME = PROTO_DATA.name + "_dummyTypes";
+
     SOURCE += std::format(R"#(#define private public
 #define HYPRWAYLAND_SCANNER_NO_INTERFACES
 #include "{}.hpp"
@@ -527,9 +529,9 @@ void parseSource() {
     // reference interfaces
 
     // dummy
-    SOURCE += R"#(
-static const wl_interface* dummyTypes[] = { nullptr };
-)#";
+    SOURCE += std::format(R"#(
+static const wl_interface* {}[] = {{ nullptr }};
+)#", DUMMY_TYPE_TABLE_NAME);
 
     SOURCE += R"#(
 // Reference all other interfaces.
@@ -823,7 +825,7 @@ static const wl_message {}[] = {{
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
                     SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", rq.name, argsToShort(rq.args, rq.since),
-                                          rq.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                                          rq.args.empty() ?  std::format("{} + 0", DUMMY_TYPE_TABLE_NAME) : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
@@ -839,7 +841,7 @@ static const wl_message {}[] = {{
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + ev.name + "_types");
 
                     SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", ev.name, argsToShort(ev.args, ev.since),
-                                          ev.args.empty() ? "dummyTypes + 0" : TYPE_TABLE_NAME + " + 0");
+                                          ev.args.empty() ? std::format("{} + 0", DUMMY_TYPE_TABLE_NAME) : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
