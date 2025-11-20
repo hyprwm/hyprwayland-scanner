@@ -41,7 +41,13 @@ pkg_check_modules(deps REQUIRED IMPORTED_TARGET pugixml)
 
 file(GLOB_RECURSE SRCFILES CONFIGURE_DEPENDS "src/*.cpp")
 add_executable(hyprwayland-scanner ${SRCFILES})
-target_link_libraries(hyprwayland-scanner PRIVATE rt Threads::Threads
+find_library(librt rt)
+if("${librt}" MATCHES "librt-NOTFOUND")
+  unset(LIBRT)
+else()
+  set(LIBRT rt)
+endif()
+target_link_libraries(hyprwayland-scanner PRIVATE ${LIBRT} Threads::Threads
                                                   PkgConfig::deps)
 
 configure_package_config_file(
