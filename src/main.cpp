@@ -333,8 +333,8 @@ class {} {{
         if (!clientCode) {
             HEADER += std::format(R"#(
     // set a listener for when this resource is _being_ destroyed
-    void setOnDestroy(F<void({}*)> handler) {{
-        onDestroy = handler;
+    void setOnDestroy(F<void({}*)> &&handler) {{
+        onDestroy = std::move(handler);
     }}
 
     // set the data for this resource
@@ -417,7 +417,7 @@ class {} {{
             args.pop_back();
             args.pop_back();
 
-            HEADER += std::format("    void {}(F<void({}*{})> handler);\n", camelize("set_" + rq.name), IFACE_CLASS_NAME_CAMEL, args);
+            HEADER += std::format("    void {}(F<void({}*{})> &&handler);\n", camelize("set_" + rq.name), IFACE_CLASS_NAME_CAMEL, args);
         }
 
         // start events
@@ -946,8 +946,8 @@ void {}::onDestroyCalled() {{
             args.pop_back();
 
             SOURCE += std::format(R"#(
-void {}::{}(F<void({}*{})> handler) {{
-    requests.{} = handler;
+void {}::{}(F<void({}*{})> &&handler) {{
+    requests.{} = std::move(handler);
 }}
 )#",
                                   IFACE_CLASS_NAME_CAMEL, camelize("set_" + rq.name), IFACE_CLASS_NAME_CAMEL, args, camelize(rq.name));
