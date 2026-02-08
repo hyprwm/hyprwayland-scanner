@@ -251,6 +251,9 @@ void parseHeader() {
 #include <functional>
 #include <cstdint>
 #include <string>
+#include <typeinfo>
+#include <typeindex>
+#include <cstdlib>
 {}
 
 #define F std::function
@@ -342,10 +345,26 @@ class {} {{
         pData = data;
     }}
 
+    // set the data for this resource with a type
+    template <typename T>
+    void setData(T* data) {{
+        pData = (void*)data;
+        dataTypeIndex = typeid(T);
+    }}
+
     // get the data for this resource
     void* data() {{
         return pData;
     }}
+
+    // get the data for this resource with a type
+    template <typename T>
+    T* data() {{
+        if (typeid(T) != dataTypeIndex)
+            std::abort();
+
+        return reinterpret_cast<T*>(pData);
+    }} 
 
     // get the raw wl_resource ptr
     wl_resource* resource() {{
@@ -380,10 +399,26 @@ class {} {{
         pData = data;
     }}
 
+    // set the data for this resource with a type
+    template <typename T>
+    void setData(T* data) {{
+        pData = (void*)data;
+        dataTypeIndex = typeid(T);
+    }}
+
     // get the data for this resource
     void* data() {{
         return pData;
     }}
+
+    // get the data for this resource with a type
+    template <typename T>
+    T* data() {{
+        if (typeid(T) != dataTypeIndex)
+            std::abort();
+
+        return reinterpret_cast<T*>(pData);
+    }} 
 
     // get the raw wl_resource (wl_proxy) ptr
     wl_proxy* resource() {{
@@ -496,6 +531,8 @@ class {} {{
 
     wl_resource* pResource = nullptr;
 
+    std::type_index dataTypeIndex = typeid(void);
+
     {}DestroyWrapper resourceDestroyListener;
 
     void* pData = nullptr;)#",
@@ -505,6 +542,8 @@ class {} {{
     wl_proxy* pResource = nullptr;
 
     bool destroyed = false;
+
+    std::type_index dataTypeIndex = typeid(void);
 
     void* pData = nullptr;)#";
         }
