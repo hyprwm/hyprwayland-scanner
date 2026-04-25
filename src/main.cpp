@@ -2,10 +2,8 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <format>
 #include <vector>
 #include <algorithm>
-#include <tuple>
 #include <filesystem>
 
 bool waylandEnums = false;
@@ -531,7 +529,8 @@ void parseSource() {
     // dummy
     SOURCE += std::format(R"#(
 static const wl_interface* {}[] = {{ nullptr }};
-)#", DUMMY_TYPE_TABLE_NAME);
+)#",
+                          DUMMY_TYPE_TABLE_NAME);
 
     SOURCE += R"#(
 // Reference all other interfaces.
@@ -781,6 +780,12 @@ void {}::{}({}) {{
             SOURCE += std::format("static const wl_interface* {}[] = {{\n", TYPE_TABLE_NAME);
 
             for (auto& arg : rq.args) {
+                if (arg.wlType == "new_id" && arg.interface.empty()) {
+                    // untyped new_id expands to (string, uint, new_id)
+                    SOURCE += "    nullptr,\n    nullptr,\n    nullptr,\n";
+                    continue;
+                }
+
                 if (arg.interface.empty()) {
                     SOURCE += "    nullptr,\n";
                     continue;
@@ -799,6 +804,12 @@ void {}::{}({}) {{
             SOURCE += std::format("static const wl_interface* {}[] = {{\n", TYPE_TABLE_NAME);
 
             for (auto& arg : ev.args) {
+                if (arg.wlType == "new_id" && arg.interface.empty()) {
+                    // untyped new_id expands to (string, uint, new_id)
+                    SOURCE += "    nullptr,\n    nullptr,\n    nullptr,\n";
+                    continue;
+                }
+
                 if (arg.interface.empty()) {
                     SOURCE += "    nullptr,\n";
                     continue;
@@ -825,7 +836,7 @@ static const wl_message {}[] = {{
                     const auto TYPE_TABLE_NAME = camelize(std::string{"_"} + "C_" + IFACE_NAME + "_" + rq.name + "_types");
 
                     SOURCE += std::format("    {{ .name = \"{}\", .signature = \"{}\", .types = {}}},\n", rq.name, argsToShort(rq.args, rq.since),
-                                          rq.args.empty() ?  std::format("{} + 0", DUMMY_TYPE_TABLE_NAME) : TYPE_TABLE_NAME + " + 0");
+                                          rq.args.empty() ? std::format("{} + 0", DUMMY_TYPE_TABLE_NAME) : TYPE_TABLE_NAME + " + 0");
                 }
 
                 SOURCE += "};\n";
