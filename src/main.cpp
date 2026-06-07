@@ -269,6 +269,14 @@ void parseHeader() {
         }
     }
 
+    // define interface versions
+    for (auto& iface : XMLDATA.ifaces) {
+        auto IFACENAME = iface.name;
+        std::transform(IFACENAME.begin(), IFACENAME.end(), IFACENAME.begin(), ::toupper);
+        HEADER += std::format("\n#define {}_INTERFACE_VERSION {}", IFACENAME, iface.version);
+    }
+    HEADER += "\n";
+
     // fw declare all classes
     for (auto& iface : XMLDATA.ifaces) {
         const auto IFACE_CLASS_NAME_CAMEL = camelize((clientCode ? "CC_" : "C_") + iface.name);
