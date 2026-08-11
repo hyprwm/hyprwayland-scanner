@@ -20,7 +20,7 @@ in
 
   hyprwayland-scanner = final: prev: {
     hyprwayland-scanner = final.callPackage ./default.nix {
-      stdenv = final.gcc15Stdenv;
+      stdenv = final.gcc16Stdenv;
       version =
         version
         + "+date="
